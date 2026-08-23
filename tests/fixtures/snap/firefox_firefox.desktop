@@ -1,0 +1,26 @@
+[Desktop Entry]
+Version=1.0
+Name=Firefox Web Browser
+GenericName=Web Browser
+Comment=Browse the World Wide Web
+Keywords=Internet;WWW;Browser;Web;Explorer;
+Exec=env BAMF_DESKTOP_FILE_HINT=/var/lib/snapd/desktop/applications/firefox_firefox.desktop /snap/bin/firefox %u
+Terminal=false
+X-MultipleArgs=false
+Type=Application
+Icon=/snap/firefox/current/default256.png
+Categories=Network;WebBrowser;
+MimeType=text/html;text/xml;application/xhtml+xml;x-scheme-handler/http;x-scheme-handler/https;
+StartupNotify=true
+StartupWMClass=firefox
+Actions=new-window;new-private-window;
+X-Snap-Instance-Name=firefox
+X-SnapInstanceName=firefox
+
+[Desktop Action new-window]
+Name=Open a New Window
+Exec=env BAMF_DESKTOP_FILE_HINT=/var/lib/snapd/desktop/applications/firefox_firefox.desktop /snap/bin/firefox --new-window
+
+[Desktop Action new-private-window]
+Name=Open a New Private Window
+Exec=env BAMF_DESKTOP_FILE_HINT=/var/lib/snapd/desktop/applications/firefox_firefox.desktop /snap/bin/firefox --private-window

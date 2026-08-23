@@ -1,0 +1,7 @@
+[Desktop Entry]
+Type=Application
+Name=First Name
+Name=Second Name
+Exec=/usr/bin/dupe %u
+Exec=/usr/bin/dupe-second %u
+MimeType=x-scheme-handler/http;

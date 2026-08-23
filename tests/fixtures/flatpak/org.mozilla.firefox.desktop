@@ -1,0 +1,26 @@
+[Desktop Entry]
+Version=1.0
+Name=Firefox
+Name[de]=Firefox
+GenericName=Web Browser
+Comment=Browse the World Wide Web
+Keywords=Internet;WWW;Browser;Web;Explorer;
+Exec=/usr/bin/flatpak run --branch=stable --arch=x86_64 --command=firefox --file-forwarding org.mozilla.firefox @@u %u @@
+Terminal=false
+Type=Application
+Icon=org.mozilla.firefox
+Categories=Network;WebBrowser;
+MimeType=text/html;text/xml;application/xhtml+xml;application/xml;x-scheme-handler/http;x-scheme-handler/https;
+StartupNotify=true
+StartupWMClass=firefox
+Actions=new-window;new-private-window;
+X-Flatpak-RenamedFrom=firefox.desktop;
+X-Flatpak=org.mozilla.firefox
+
+[Desktop Action new-window]
+Name=Open a New Window
+Exec=/usr/bin/flatpak run --branch=stable --arch=x86_64 --command=firefox --file-forwarding org.mozilla.firefox --new-window @@u %u @@
+
+[Desktop Action new-private-window]
+Name=Open a New Private Window
+Exec=/usr/bin/flatpak run --branch=stable --arch=x86_64 --command=firefox --file-forwarding org.mozilla.firefox --private-window @@u %u @@

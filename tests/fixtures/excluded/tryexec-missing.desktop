@@ -1,0 +1,6 @@
+[Desktop Entry]
+Type=Application
+Name=Uninstalled Browser
+TryExec=/usr/bin/definitely-not-installed-browser
+Exec=/usr/bin/definitely-not-installed-browser %u
+MimeType=x-scheme-handler/http;x-scheme-handler/https;

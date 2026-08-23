@@ -1,0 +1,6 @@
+[Desktop Entry]
+Type=Application
+Name=Hidden Browser
+Exec=/usr/bin/hidden-browser %u
+MimeType=x-scheme-handler/http;x-scheme-handler/https;
+Hidden=true

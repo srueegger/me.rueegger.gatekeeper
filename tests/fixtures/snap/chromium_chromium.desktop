@@ -1,0 +1,14 @@
+[Desktop Entry]
+Version=1.0
+Name=Chromium Web Browser
+GenericName=Web Browser
+Comment=Access the Internet
+Exec=env BAMF_DESKTOP_FILE_HINT=/var/lib/snapd/desktop/applications/chromium_chromium.desktop /snap/bin/chromium %U
+Terminal=false
+Type=Application
+Icon=/snap/chromium/current/chromium.png
+Categories=Network;WebBrowser;
+MimeType=text/html;text/xml;application/xhtml+xml;x-scheme-handler/http;x-scheme-handler/https;
+StartupNotify=true
+StartupWMClass=chromium
+X-SnapInstanceName=chromium

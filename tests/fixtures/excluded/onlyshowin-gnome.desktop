@@ -1,0 +1,6 @@
+[Desktop Entry]
+Type=Application
+Name=GNOME Only Browser
+Exec=/usr/bin/epiphany %u
+MimeType=x-scheme-handler/http;x-scheme-handler/https;
+OnlyShowIn=GNOME;

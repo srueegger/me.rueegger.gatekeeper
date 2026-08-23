@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=Gatekeeper
+Exec=gatekeeper %u
+Icon=me.rueegger.Gatekeeper
+MimeType=x-scheme-handler/http;x-scheme-handler/https;text/html;
+Categories=Network;WebBrowser;
+X-Flatpak=me.rueegger.Gatekeeper

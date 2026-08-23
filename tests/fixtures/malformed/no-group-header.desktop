@@ -1,0 +1,4 @@
+Name=Broken Browser
+Exec=/usr/bin/broken %u
+Type=Application
+MimeType=x-scheme-handler/http;
