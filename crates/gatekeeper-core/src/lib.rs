@@ -14,6 +14,7 @@
 pub mod desktop;
 pub mod discovery;
 pub mod exec;
+pub mod launcher;
 pub mod locale;
 pub mod uri;
 
@@ -22,5 +23,6 @@ pub use discovery::{
     Browser, BrowserAction, DiscoveryOptions, Origin, SearchPath, SourceKind, discover,
 };
 pub use exec::{ExecError, FieldContext, build_argv};
+pub use launcher::{LaunchError, LaunchRequest, Launcher, default_launcher};
 pub use locale::Locale;
 pub use uri::{TargetUri, UriError};

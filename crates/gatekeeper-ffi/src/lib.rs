@@ -5,6 +5,7 @@
 
 use gatekeeper_core::discovery::{self, DiscoveryOptions};
 use gatekeeper_core::exec::{self, FieldContext};
+use gatekeeper_core::launcher::{LaunchRequest, default_launcher};
 use gatekeeper_core::uri::TargetUri;
 
 /// Eigene Desktop-ID. Wird in der Discovery immer ausgefiltert (Invariante 1).
@@ -25,6 +26,13 @@ mod ffi {
         argv: Vec<String>,
     }
 
+    /// Ergebnis eines Startversuchs.
+    struct LaunchOutcome {
+        started: bool,
+        /// Fehlertext, wenn `started` falsch ist.
+        error: String,
+    }
+
     /// Ergebnis der Zielprüfung.
     struct Target {
         valid: bool,
@@ -39,6 +47,7 @@ mod ffi {
         fn init_logging();
         fn check_target(raw: &str) -> Target;
         fn list_browsers(uri: &str) -> Vec<Browser>;
+        fn launch(argv: &[String]) -> LaunchOutcome;
     }
 }
 
@@ -95,4 +104,16 @@ pub fn list_browsers(uri: &str) -> Vec<ffi::Browser> {
             })
         })
         .collect()
+}
+
+/// Startet ein zuvor aufgelöstes Kommando.
+///
+/// Es wird bewusst ein fertiges `argv` übergeben und keine Kommandozeile. Der Weg von einer
+/// Zeichenkette zu einem Prozess existiert in diesem Crate nicht (Invariante 3).
+pub fn launch(argv: &[String]) -> ffi::LaunchOutcome {
+    let request = LaunchRequest::new(argv.to_vec());
+    match default_launcher().launch(&request) {
+        Ok(()) => ffi::LaunchOutcome { started: true, error: String::new() },
+        Err(err) => ffi::LaunchOutcome { started: false, error: err.to_string() },
+    }
 }

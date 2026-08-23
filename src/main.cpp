@@ -1,13 +1,13 @@
 // Einstiegspunkt von Gatekeeper.
 //
 // Die Reihenfolge hier ist Absicht: Zuerst wird die URL geprüft und der Kern befragt,
-// erst danach entsteht eine QGuiApplication. Sobald Regeln umgesetzt sind, kehrt ein
-// Regeltreffer an dieser Stelle zurück, ohne dass jemals Qt initialisiert wird.
+// erst danach entsteht eine QGuiApplication. Wird das Ziel abgelehnt oder greift später
+// eine gespeicherte Regel, endet der Aufruf, bevor Qt überhaupt hochgefahren ist.
 
 #include <QGuiApplication>
 #include <QIcon>
-#include <QTextStream>
 #include <QQmlApplicationEngine>
+#include <QTextStream>
 #include <QVariantList>
 #include <QVariantMap>
 
@@ -50,44 +50,64 @@ void addHostIconPaths()
     QIcon::setThemeSearchPaths(paths);
 }
 
+/// Wie der Aufruf zu verstehen ist.
+struct Invocation
+{
+    enum class Mode {
+        /// Dialog zeigen.
+        Ask,
+        /// Nur auflisten, was gefunden wird, und beenden.
+        List,
+        /// Ohne Dialog starten, Browser über seine Desktop-ID gewählt.
+        Launch,
+    };
+
+    Mode mode = Mode::Ask;
+    QString browserId;
+    QString target;
+};
+
+Invocation parseArguments(int argc, char *argv[])
+{
+    Invocation invocation;
+    if (argc > 1 && qstrcmp(argv[1], "--list") == 0) {
+        invocation.mode = Invocation::Mode::List;
+        if (argc > 2)
+            invocation.target = QString::fromLocal8Bit(argv[2]);
+        return invocation;
+    }
+    if (argc > 3 && qstrcmp(argv[1], "--launch") == 0) {
+        invocation.mode = Invocation::Mode::Launch;
+        invocation.browserId = QString::fromLocal8Bit(argv[2]);
+        invocation.target = QString::fromLocal8Bit(argv[3]);
+        return invocation;
+    }
+    if (argc > 1)
+        invocation.target = QString::fromLocal8Bit(argv[1]);
+    return invocation;
+}
+
 } // namespace
 
 int main(int argc, char *argv[])
 {
     gatekeeper::init_logging();
 
-    // Diagnose: auflisten, was gefunden wird, und beenden. Nützlich vor allem in der
-    // Sandbox, wo sich schwer nachvollziehen lässt, welche Verzeichnisse ankommen.
-    const bool listOnly = argc > 1 && qstrcmp(argv[1], "--list") == 0;
+    const Invocation invocation = parseArguments(argc, argv);
 
-    const QString rawTarget = (argc > 1 && !listOnly) ? QString::fromLocal8Bit(argv[1]) : QString();
-    const auto target = gatekeeper::check_target(rust::Str(rawTarget.toUtf8().constData()));
-
-    if (!rawTarget.isEmpty() && !target.valid) {
+    const QByteArray rawTarget = invocation.target.toUtf8();
+    const auto target = gatekeeper::check_target(rust::Str(rawTarget.constData(), rawTarget.size()));
+    if (!invocation.target.isEmpty() && !target.valid) {
         qWarning("Ziel abgelehnt: %s", toQString(target.error).toUtf8().constData());
         return 2;
     }
 
-    const auto browsers = gatekeeper::list_browsers(rust::Str(toQString(target.uri).toUtf8().constData()));
+    const QByteArray uri = toQString(target.uri).toUtf8();
+    const auto browsers = gatekeeper::list_browsers(rust::Str(uri.constData(), uri.size()));
     if (browsers.empty()) {
         qWarning("Kein Browser gefunden.");
         return 1;
     }
-
-    if (listOnly) {
-        for (const auto &browser : browsers) {
-            QTextStream(stdout) << toQString(browser.name) << "  [" << toQString(browser.origin)
-                                << "]  " << toQString(browser.id) << "\n"
-                                << "    " << toQStringList(browser.argv).join(QLatin1Char(' '))
-                                << "\n";
-        }
-        return 0;
-    }
-
-    QGuiApplication app(argc, argv);
-    app.setApplicationName(QStringLiteral("Gatekeeper"));
-    app.setDesktopFileName(QStringLiteral("me.rueegger.Gatekeeper"));
-    addHostIconPaths();
 
     QVariantList model;
     for (const auto &browser : browsers) {
@@ -100,9 +120,39 @@ int main(int argc, char *argv[])
         model.append(entry);
     }
 
+    if (invocation.mode == Invocation::Mode::List) {
+        QTextStream out(stdout);
+        for (const QVariant &item : std::as_const(model)) {
+            const QVariantMap browser = item.toMap();
+            out << browser[QStringLiteral("name")].toString() << "  ["
+                << browser[QStringLiteral("origin")].toString() << "]  "
+                << browser[QStringLiteral("id")].toString() << "\n    "
+                << browser[QStringLiteral("argv")].toStringList().join(QLatin1Char(' ')) << "\n";
+        }
+        return 0;
+    }
+
     Session session;
     session.setBrowsers(std::move(model));
     session.setTarget(toQString(target.uri), toQString(target.display_host));
+
+    // Denselben Weg nimmt später ein Regeltreffer: kein Fenster, keine QGuiApplication.
+    if (invocation.mode == Invocation::Mode::Launch) {
+        const int index = session.indexOfDesktopId(invocation.browserId);
+        if (index < 0) {
+            qWarning("Kein Browser mit der Desktop-ID '%s'",
+                     qUtf8Printable(invocation.browserId));
+            return 4;
+        }
+        session.choose(index);
+        return session.launchError().isEmpty() ? 0 : 5;
+    }
+
+    QGuiApplication app(argc, argv);
+    app.setApplicationName(QStringLiteral("Gatekeeper"));
+    app.setDesktopFileName(QStringLiteral("me.rueegger.Gatekeeper"));
+    addHostIconPaths();
+
     Session::instance = &session;
 
     QQmlApplicationEngine engine;

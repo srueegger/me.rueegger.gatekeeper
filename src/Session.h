@@ -24,6 +24,8 @@ class Session : public QObject
     Q_PROPERTY(QString targetUri READ targetUri CONSTANT)
     /// Die Domain, die hervorgehoben wird. Leer bei Schemata ohne Host.
     Q_PROPERTY(QString targetHost READ targetHost CONSTANT)
+    /// Grund des letzten fehlgeschlagenen Starts. Leer, solange nichts schiefging.
+    Q_PROPERTY(QString launchError READ launchError NOTIFY launchErrorChanged)
 
 public:
     explicit Session(QObject *parent = nullptr) : QObject(parent) { }
@@ -31,6 +33,7 @@ public:
     QVariantList browsers() const { return m_browsers; }
     QString targetUri() const { return m_targetUri; }
     QString targetHost() const { return m_targetHost; }
+    QString launchError() const { return m_launchError; }
 
     void setBrowsers(QVariantList browsers) { m_browsers = std::move(browsers); }
     void setTarget(QString uri, QString host)
@@ -39,19 +42,27 @@ public:
         m_targetHost = std::move(host);
     }
 
-    /// Startet den Browser an `index`.
+    /// Der Index des Browsers mit dieser Desktop-ID, oder -1.
+    int indexOfDesktopId(const QString &desktopId) const;
+
+    /// Startet den Browser an `index` und beendet die Anwendung.
     ///
-    /// Noch nicht umgesetzt: der Launcher folgt in M1. Bis dahin wird das aufgelöste
-    /// Kommando nur ausgegeben, damit sichtbar ist, was gestartet würde.
-    Q_INVOKABLE void choose(int index) const;
+    /// Schlägt der Start fehl, bleibt das Fenster stehen und `launchError` trägt den Grund.
+    /// Wer gerade auf einen Link geklickt hat, soll nicht vor einem verschwundenen Fenster
+    /// ohne Erklärung sitzen.
+    Q_INVOKABLE void choose(int index);
 
     /// Die Instanz, die QML als Singleton bekommt. Wird vor dem Laden der QML-Wurzel
     /// gesetzt; QML greift erst danach zu.
     static Session *instance;
     static Session *create(QQmlEngine *, QJSEngine *) { return instance; }
 
+Q_SIGNALS:
+    void launchErrorChanged();
+
 private:
     QVariantList m_browsers;
     QString m_targetUri;
     QString m_targetHost;
+    QString m_launchError;
 };

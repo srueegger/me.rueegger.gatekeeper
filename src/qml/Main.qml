@@ -59,6 +59,17 @@ ApplicationWindow {
                 elide: Text.ElideMiddle
                 Layout.fillWidth: true
             }
+
+            // Schlägt der Start fehl, bleibt das Fenster stehen und sagt warum. Wortlos
+            // zu verschwinden wäre die schlechtere Antwort auf einen Klick.
+            Label {
+                text: qsTr("Start fehlgeschlagen: %1").arg(Session.launchError)
+                visible: Session.launchError.length > 0
+                color: "#c0392b"
+                wrapMode: Text.WordWrap
+                Layout.fillWidth: true
+                Layout.topMargin: 4
+            }
         }
 
         ListView {

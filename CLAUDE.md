@@ -23,9 +23,10 @@ Der Kern des Projekts. Änderungen daran nie ohne Rückfrage:
    `Exec`-Zeile gestartet.
 3. **Nie über eine Shell starten.** URLs sind Fremdeingabe. Immer `argv`-Arrays, nie
    String-Interpolation in `sh -c`. URLs mit führendem `-` werden nie als Argument durchgereicht.
-4. **Gatekeeper muss ohne Flatpak lauffähig bleiben.** Der Launcher ist hinter einem Trait
-   abstrahiert: Direktstart nativ, `flatpak-spawn --host` in der Sandbox. Sonst ist lokales
-   Entwickeln unzumutbar.
+4. **Gatekeeper muss ohne Flatpak lauffähig bleiben.** Der Launcher liegt hinter dem Trait
+   `Launcher`: `DirectLauncher` nativ, `HostSpawnLauncher` in der Sandbox. Sonst ist lokales
+   Entwickeln unzumutbar. `RecordingLauncher` startet nichts, sondern zeichnet auf, und macht
+   Invariante 3 überprüfbar statt nur beabsichtigt.
 
 ## Architektur
 
@@ -76,8 +77,16 @@ flatpak-builder --force-clean --user \
     me.rueegger.Gatekeeper.yaml
 ```
 
-`flatpak run me.rueegger.Gatekeeper --list` zeigt, was die Sandbox findet. Ohne diesen
-Schalter lässt sich von aussen nicht nachvollziehen, welche Verzeichnisse dort ankommen.
+Zwei Schalter zum Nachsehen, beide ohne Dialog:
+
+```
+gatekeeper --list [url]                       # was gefunden wird, mit aufgelöstem argv
+gatekeeper --launch <desktop-id> <url>        # ohne Dialog starten
+```
+
+`--list` ist vor allem in der Sandbox nützlich, wo sich von aussen nicht nachvollziehen
+lässt, welche Verzeichnisse ankommen. `--launch` nimmt denselben Weg, den später ein
+Regeltreffer nimmt: kein Fenster, keine `QGuiApplication`.
 
 Die Konfiguration ist warnungsfrei und soll es bleiben. Eine neue Warnung ist ein Befund, kein
 Rauschen.
