@@ -235,3 +235,25 @@ fn missing_directories_are_simply_skipped() {
 
     assert_eq!(found.len(), 3);
 }
+
+// --------------------------------------------------------------------------------------
+// Tote Symlinks
+// --------------------------------------------------------------------------------------
+
+#[test]
+fn a_dangling_symlink_is_skipped_without_taking_the_scan_down() {
+    // In den Export-Verzeichnissen von Flatpak stehen Symlinks, deren Ziel in der Sandbox
+    // nicht eingehängt ist. Beim Scan taucht der Eintrag auf, lesen lässt er sich nicht.
+    let dir = std::env::temp_dir().join("gatekeeper-dangling-symlink-test");
+    let _ = std::fs::remove_dir_all(&dir);
+    std::fs::create_dir_all(&dir).unwrap();
+    std::os::unix::fs::symlink("/nirgendwo/gibt/es/das.desktop", dir.join("dangling.desktop"))
+        .unwrap();
+    std::fs::copy(fixtures().join("native/chromium.desktop"), dir.join("chromium.desktop"))
+        .unwrap();
+
+    let found = discover(&options(vec![SearchPath::new(&dir, SourceKind::System)]));
+
+    assert_eq!(names(&found), ["Chromium Web Browser"]);
+    std::fs::remove_dir_all(&dir).unwrap();
+}

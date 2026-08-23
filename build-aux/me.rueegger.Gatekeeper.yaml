@@ -25,18 +25,17 @@ finish-args:
   # Default-Handler nach, und das sind wir selbst. Siehe ADR-1 und ADR-2.
   - --talk-name=org.freedesktop.Flatpak
 
-  # Desktop-Einträge der installierten Browser lesen.
-  - --filesystem=/usr/share/applications:ro
-  - --filesystem=/usr/local/share/applications:ro
+  # Desktop-Einträge und Symbole der installierten Browser lesen.
+  #
+  # Das /usr des Hosts ist nur über host-os erreichbar und erscheint dann unter
+  # /run/host/usr. Ein direktes --filesystem=/usr/share/applications lehnt Flatpak ab:
+  # "Path /usr is reserved by Flatpak", denn dort liegt die Runtime. Siehe ADR-9.
+  - --filesystem=host-os:ro
   - --filesystem=xdg-data/applications:ro
-  - --filesystem=/var/lib/flatpak/exports/share:ro
   - --filesystem=xdg-data/flatpak/exports/share:ro
-  - --filesystem=/var/lib/snapd/desktop:ro
-
-  # Deren Symbole. Qt findet die Icon-Themes des Hosts sonst nicht.
-  - --filesystem=/usr/share/icons:ro
-  - --filesystem=/usr/share/pixmaps:ro
   - --filesystem=xdg-data/icons:ro
+  - --filesystem=/var/lib/flatpak/exports/share:ro
+  - --filesystem=/var/lib/snapd/desktop:ro
 
   # Sich selbst als Standardbrowser eintragen.
   - --filesystem=xdg-config/mimeapps.list:create

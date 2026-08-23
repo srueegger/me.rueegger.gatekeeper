@@ -15,7 +15,7 @@ use std::path::{Path, PathBuf};
 
 use log::{debug, warn};
 
-use crate::desktop::{DesktopFile, Group};
+use crate::desktop::{DesktopFile, Group, ParseError};
 use crate::exec;
 use crate::locale::Locale;
 
@@ -123,46 +123,71 @@ impl DiscoveryOptions {
                 .filter(|s| !s.is_empty())
                 .map(str::to_string)
                 .collect(),
-            program_dirs: std::env::split_paths(&std::env::var("PATH").unwrap_or_default())
-                .collect(),
+            program_dirs: default_program_dirs(),
+        }
+    }
+}
+
+/// Verzeichnisse, in denen `TryExec` und nicht-absolute Programme gesucht werden.
+///
+/// In der Sandbox ist `PATH` der der Runtime. Ein Eintrag mit `TryExec=firefox` würde
+/// darüber nie aufgelöst und der Browser fälschlich aussortiert. Gesucht wird deshalb in
+/// den Binärverzeichnissen des Hosts.
+pub fn default_program_dirs() -> Vec<PathBuf> {
+    if in_flatpak_sandbox() {
+        return ["/usr/local/bin", "/usr/bin", "/bin", "/var/lib/snapd/snap/bin", "/snap/bin"]
+            .iter()
+            .map(|dir| {
+                if dir.starts_with("/usr") || dir.starts_with("/bin") {
+                    host_path(dir)
+                } else {
+                    PathBuf::from(*dir)
+                }
+            })
+            .collect();
+    }
+    std::env::split_paths(&std::env::var("PATH").unwrap_or_default()).collect()
+}
+
+/// Läuft dieser Prozess in einer Flatpak-Sandbox?
+///
+/// Flatpak legt diese Datei in jede Sandbox. Ihr Vorhandensein ist die verlässlichste
+/// Erkennung, die ohne D-Bus auskommt.
+pub fn in_flatpak_sandbox() -> bool {
+    Path::new("/.flatpak-info").exists()
+}
+
+/// Die Teile der Umgebung, aus denen sich die Suchpfade ergeben.
+///
+/// Als eigener Typ, damit sich die Pfadbildung testen lässt, ohne den Prozess in eine
+/// Sandbox zu stecken.
+#[derive(Debug, Clone, Default)]
+pub struct PathEnvironment {
+    pub sandboxed: bool,
+    pub home: Option<PathBuf>,
+    pub xdg_data_home: Option<PathBuf>,
+    pub xdg_data_dirs: Option<String>,
+}
+
+impl PathEnvironment {
+    pub fn from_env() -> Self {
+        Self {
+            sandboxed: in_flatpak_sandbox(),
+            home: std::env::var_os("HOME").map(PathBuf::from),
+            xdg_data_home: std::env::var_os("XDG_DATA_HOME").map(PathBuf::from),
+            xdg_data_dirs: std::env::var("XDG_DATA_DIRS").ok(),
         }
     }
 }
 
 /// Die Verzeichnisse, in denen Desktop-Einträge liegen, höchste Präzedenz zuerst.
-///
-/// Die Flatpak- und Snap-Exportpfade werden ausdrücklich aufgeführt und nicht `XDG_DATA_DIRS`
-/// überlassen: In der Sandbox enthält diese Variable die Pfade der Runtime, nicht die des
-/// Hosts.
 pub fn default_search_paths() -> Vec<SearchPath> {
-    let home = std::env::var_os("HOME").map(PathBuf::from);
-    let data_home = std::env::var_os("XDG_DATA_HOME")
-        .map(PathBuf::from)
-        .or_else(|| home.as_ref().map(|h| h.join(".local/share")));
+    search_paths_for(&PathEnvironment::from_env())
+}
 
-    let mut paths = Vec::new();
-    let mut push = |dir: PathBuf, kind: SourceKind| paths.push(SearchPath::new(dir, kind));
-
-    if let Some(data_home) = &data_home {
-        push(data_home.join("applications"), SourceKind::User);
-        push(data_home.join("flatpak/exports/share/applications"), SourceKind::Flatpak);
-    }
-
-    // Flatpak hängt seine Exportpfade auf dem Host selbst an XDG_DATA_DIRS an. Würden sie
-    // hier pauschal als System durchgehen, trüge ein systemweit installierter Flatpak-Browser
-    // das falsche Etikett.
-    let data_dirs = std::env::var("XDG_DATA_DIRS")
-        .unwrap_or_else(|_| "/usr/local/share:/usr/share".to_string());
-    for dir in std::env::split_paths(&data_dirs) {
-        let applications = dir.join("applications");
-        let kind = classify_dir(&applications);
-        push(applications, kind);
-    }
-
-    push("/usr/local/share/applications".into(), SourceKind::System);
-    push("/usr/share/applications".into(), SourceKind::System);
-    push("/var/lib/flatpak/exports/share/applications".into(), SourceKind::Flatpak);
-    push("/var/lib/snapd/desktop/applications".into(), SourceKind::Snap);
+/// Bildet die Suchpfade aus einer gegebenen Umgebung.
+pub fn search_paths_for(env: &PathEnvironment) -> Vec<SearchPath> {
+    let mut paths = if env.sandboxed { sandbox_search_paths(env) } else { host_search_paths(env) };
 
     // Doppelte Verzeichnisse würden Einträge doppelt einlesen. Das erste Vorkommen zählt,
     // weil es die höhere Präzedenz hat.
@@ -170,6 +195,86 @@ pub fn default_search_paths() -> Vec<SearchPath> {
     paths.retain(|path| seen.insert(path.dir.clone()));
     paths
 }
+
+/// Suchpfade ausserhalb einer Sandbox, nach XDG Base Directory Spec.
+fn host_search_paths(env: &PathEnvironment) -> Vec<SearchPath> {
+    let data_home = env
+        .xdg_data_home
+        .clone()
+        .or_else(|| env.home.as_ref().map(|home| home.join(".local/share")));
+
+    let mut paths = Vec::new();
+    if let Some(data_home) = &data_home {
+        paths.push(SearchPath::new(data_home.join("applications"), SourceKind::User));
+        paths.push(SearchPath::new(
+            data_home.join("flatpak/exports/share/applications"),
+            SourceKind::Flatpak,
+        ));
+    }
+
+    // Flatpak hängt seine Exportpfade auf dem Host selbst an XDG_DATA_DIRS an. Würden sie
+    // hier pauschal als System durchgehen, trüge ein systemweit installierter
+    // Flatpak-Browser das falsche Etikett.
+    let data_dirs =
+        env.xdg_data_dirs.clone().unwrap_or_else(|| "/usr/local/share:/usr/share".to_string());
+    for dir in std::env::split_paths(&data_dirs) {
+        let applications = dir.join("applications");
+        let kind = classify_dir(&applications);
+        paths.push(SearchPath::new(applications, kind));
+    }
+
+    paths.extend(HOST_SYSTEM_PATHS.iter().map(|dir| SearchPath::new(*dir, SourceKind::System)));
+    paths.extend(SHARED_PATHS.iter().map(|(dir, kind)| SearchPath::new(*dir, *kind)));
+    paths
+}
+
+/// Suchpfade innerhalb einer Flatpak-Sandbox.
+///
+/// `XDG_DATA_HOME` und `XDG_DATA_DIRS` werden hier bewusst **nicht** ausgewertet. In der
+/// Sandbox zeigt `XDG_DATA_HOME` auf das app-eigene Datenverzeichnis, und `XDG_DATA_DIRS`
+/// enthält `/app/share` und `/usr/share` der Runtime. Dort stehen die Anwendungen der
+/// Runtime und unser eigener Eintrag, aber kein einziger Browser des Hosts.
+///
+/// Das `/usr` des Hosts erscheint unter `/run/host/usr` und setzt
+/// `--filesystem=host-os:ro` im Manifest voraus. Ein direktes `--filesystem=/usr/...`
+/// lehnt Flatpak ab, weil `/usr` in der Sandbox der Runtime gehört.
+fn sandbox_search_paths(env: &PathEnvironment) -> Vec<SearchPath> {
+    let mut paths = Vec::new();
+
+    if let Some(home) = &env.home {
+        paths.push(SearchPath::new(home.join(".local/share/applications"), SourceKind::User));
+        paths.push(SearchPath::new(
+            home.join(".local/share/flatpak/exports/share/applications"),
+            SourceKind::Flatpak,
+        ));
+    }
+
+    paths.extend(
+        HOST_SYSTEM_PATHS.iter().map(|dir| SearchPath::new(host_path(dir), SourceKind::System)),
+    );
+    paths.extend(SHARED_PATHS.iter().map(|(dir, kind)| SearchPath::new(*dir, *kind)));
+    paths
+}
+
+/// Übersetzt einen absoluten Hostpfad in die Sicht der Sandbox.
+fn host_path(absolute: &str) -> PathBuf {
+    PathBuf::from(format!("{HOST_PREFIX}{absolute}"))
+}
+
+/// Unter diesem Präfix hängt Flatpak das Wurzeldateisystem des Hosts ein.
+const HOST_PREFIX: &str = "/run/host";
+
+/// Pfade, die in und ausserhalb der Sandbox dasselbe bedeuten.
+///
+/// Anders als `/usr` ist `/var` in der Sandbox nicht von der Runtime belegt; Flatpak und
+/// Snap binden diese Verzeichnisse unverändert vom Host ein.
+const SHARED_PATHS: &[(&str, SourceKind)] = &[
+    ("/var/lib/flatpak/exports/share/applications", SourceKind::Flatpak),
+    ("/var/lib/snapd/desktop/applications", SourceKind::Snap),
+];
+
+/// Systemweite Anwendungsverzeichnisse des Hosts, ohne Präfix.
+const HOST_SYSTEM_PATHS: &[&str] = &["/usr/local/share/applications", "/usr/share/applications"];
 
 /// Sucht alle startbaren Browser.
 ///
@@ -209,7 +314,14 @@ fn read_dir(dir: &Path) -> Vec<DesktopFile> {
         }
         match DesktopFile::parse_file(&path) {
             Ok(file) => files.push(file),
-            // Auf echten Systemen liegt immer irgendwo Müll. Weitermachen.
+            // Ein Eintrag, der beim Lesen nicht mehr da ist, ist kein Fehler: In den
+            // Export-Verzeichnissen stehen Symlinks, deren Ziel in der Sandbox nicht
+            // eingehängt ist. Das passiert bei jedem Start und darf die Ausgabe nicht
+            // fluten.
+            Err(ParseError::Io(err)) if err.kind() == std::io::ErrorKind::NotFound => {
+                debug!("{} übersprungen: Ziel nicht vorhanden", path.display());
+            }
+            // Alles andere ist echter Müll. Überspringen, aber sichtbar machen.
             Err(err) => warn!("{} übersprungen: {err}", path.display()),
         }
     }
@@ -460,6 +572,82 @@ fn resolve_program(program: &str, program_dirs: &[PathBuf]) -> Option<PathBuf> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn dirs(paths: &[SearchPath]) -> Vec<String> {
+        paths.iter().map(|p| p.dir.to_string_lossy().into_owned()).collect()
+    }
+
+    fn sandbox_env() -> PathEnvironment {
+        PathEnvironment {
+            sandboxed: true,
+            home: Some(PathBuf::from("/home/user")),
+            // So sieht es in einer echten Sandbox aus: beide Variablen zeigen ins Leere.
+            xdg_data_home: Some(PathBuf::from("/home/user/.var/app/me.rueegger.Gatekeeper/data")),
+            xdg_data_dirs: Some("/app/share:/usr/share:/usr/share/runtime/share".to_string()),
+        }
+    }
+
+    #[test]
+    fn sandbox_reads_host_usr_through_the_run_host_prefix() {
+        let paths = dirs(&search_paths_for(&sandbox_env()));
+
+        assert!(paths.contains(&"/run/host/usr/share/applications".to_string()));
+        assert!(paths.contains(&"/run/host/usr/local/share/applications".to_string()));
+    }
+
+    #[test]
+    fn sandbox_never_scans_the_runtimes_own_directories() {
+        let paths = dirs(&search_paths_for(&sandbox_env()));
+
+        // /usr/share/applications gehört in der Sandbox der Runtime. Dort stehen deren
+        // Anwendungen, kein Browser des Hosts.
+        assert!(!paths.contains(&"/usr/share/applications".to_string()), "{paths:?}");
+        // /app/share/applications enthält unseren eigenen Eintrag.
+        assert!(!paths.iter().any(|p| p.starts_with("/app/")), "{paths:?}");
+        // Das app-private Datenverzeichnis ist nicht das Home des Nutzers.
+        assert!(!paths.iter().any(|p| p.contains("/.var/app/")), "{paths:?}");
+    }
+
+    #[test]
+    fn sandbox_still_reads_the_real_home_and_the_shared_paths() {
+        let paths = dirs(&search_paths_for(&sandbox_env()));
+
+        assert!(paths.contains(&"/home/user/.local/share/applications".to_string()));
+        assert!(paths.contains(&"/var/lib/flatpak/exports/share/applications".to_string()));
+        assert!(paths.contains(&"/var/lib/snapd/desktop/applications".to_string()));
+    }
+
+    #[test]
+    fn outside_the_sandbox_xdg_variables_are_honoured() {
+        let env = PathEnvironment {
+            sandboxed: false,
+            home: Some(PathBuf::from("/home/user")),
+            xdg_data_home: Some(PathBuf::from("/home/user/.local/share")),
+            xdg_data_dirs: Some("/usr/local/share:/usr/share".to_string()),
+        };
+        let paths = dirs(&search_paths_for(&env));
+
+        assert!(paths.contains(&"/home/user/.local/share/applications".to_string()));
+        assert!(paths.contains(&"/usr/share/applications".to_string()));
+        assert!(!paths.iter().any(|p| p.starts_with("/run/host")), "{paths:?}");
+    }
+
+    #[test]
+    fn search_paths_are_free_of_duplicates() {
+        let env = PathEnvironment {
+            sandboxed: false,
+            home: Some(PathBuf::from("/home/user")),
+            xdg_data_home: Some(PathBuf::from("/home/user/.local/share")),
+            // /usr/share taucht zusätzlich in der festen Liste auf.
+            xdg_data_dirs: Some("/usr/share:/usr/share".to_string()),
+        };
+        let paths = dirs(&search_paths_for(&env));
+        let mut unique = paths.clone();
+        unique.sort();
+        unique.dedup();
+
+        assert_eq!(paths.len(), unique.len(), "{paths:?}");
+    }
 
     #[test]
     fn classifies_flatpak_exports_even_when_they_come_from_data_dirs() {

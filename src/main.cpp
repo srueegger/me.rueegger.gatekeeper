@@ -6,6 +6,7 @@
 
 #include <QGuiApplication>
 #include <QIcon>
+#include <QTextStream>
 #include <QQmlApplicationEngine>
 #include <QVariantList>
 #include <QVariantMap>
@@ -30,14 +31,18 @@ QStringList toQStringList(const rust::Vec<rust::String> &values)
 }
 
 // Qt sucht Icon-Themes nur in den Pfaden der eigenen Runtime. In der Flatpak-Sandbox
-// liegen die Themes der Browser aber auf dem Host, eingehängt über die Berechtigungen
-// aus dem Manifest. Ohne diese Ergänzung bleibt die Liste ohne Symbole.
+// liegen die Themes der Browser aber auf dem Host und erscheinen unter /run/host.
+// Ohne diese Ergänzung bleibt die Liste ohne Symbole. Ausserhalb der Sandbox schaden
+// die zusätzlichen Pfade nicht, sie existieren dort schlicht nicht.
 void addHostIconPaths()
 {
     QStringList paths = QIcon::themeSearchPaths();
     for (const QString &host : {QStringLiteral("/run/host/usr/share/icons"),
-                                QStringLiteral("/usr/share/icons"),
+                                QStringLiteral("/run/host/usr/share/pixmaps"),
+                                QStringLiteral("/run/host/share/icons"),
+                                QStringLiteral("/run/host/user-share/icons"),
                                 QStringLiteral("/var/lib/flatpak/exports/share/icons"),
+                                QStringLiteral("/usr/share/icons"),
                                 QStringLiteral("/usr/share/pixmaps")}) {
         if (!paths.contains(host))
             paths.append(host);
@@ -51,7 +56,11 @@ int main(int argc, char *argv[])
 {
     gatekeeper::init_logging();
 
-    const QString rawTarget = argc > 1 ? QString::fromLocal8Bit(argv[1]) : QString();
+    // Diagnose: auflisten, was gefunden wird, und beenden. Nützlich vor allem in der
+    // Sandbox, wo sich schwer nachvollziehen lässt, welche Verzeichnisse ankommen.
+    const bool listOnly = argc > 1 && qstrcmp(argv[1], "--list") == 0;
+
+    const QString rawTarget = (argc > 1 && !listOnly) ? QString::fromLocal8Bit(argv[1]) : QString();
     const auto target = gatekeeper::check_target(rust::Str(rawTarget.toUtf8().constData()));
 
     if (!rawTarget.isEmpty() && !target.valid) {
@@ -63,6 +72,16 @@ int main(int argc, char *argv[])
     if (browsers.empty()) {
         qWarning("Kein Browser gefunden.");
         return 1;
+    }
+
+    if (listOnly) {
+        for (const auto &browser : browsers) {
+            QTextStream(stdout) << toQString(browser.name) << "  [" << toQString(browser.origin)
+                                << "]  " << toQString(browser.id) << "\n"
+                                << "    " << toQStringList(browser.argv).join(QLatin1Char(' '))
+                                << "\n";
+        }
+        return 0;
     }
 
     QGuiApplication app(argc, argv);

@@ -158,3 +158,34 @@ zurück nach C++.
 **Konsequenz**: `qmllint` läuft ohne Befund, die Zugriffe sind typgeprüft und `qmlcachegen`
 kann sie übersetzen. Preis ist eine zusätzliche Header/Quelldatei und ein statischer Zeiger,
 der vor dem Laden der QML-Wurzel gesetzt wird.
+
+---
+
+## ADR-9: Hostpfade in der Sandbox über `/run/host`, XDG-Variablen dort ignorieren
+
+**Status**: akzeptiert (2026-08-23)
+
+**Kontext**: Der erste Entwurf des Manifests forderte `--filesystem=/usr/share/applications:ro`
+und ähnliche Pfade an. Flatpak lehnt das ab: „Not sharing /usr/share/applications with sandbox:
+Path /usr is reserved by Flatpak". In der Sandbox gehört `/usr` der Runtime. Der Scan fand
+dort 13 Anwendungen der KDE-Runtime und keinen einzigen Browser des Hosts.
+
+Ebenso unbrauchbar sind in der Sandbox die XDG-Variablen. `XDG_DATA_HOME` zeigt auf
+`~/.var/app/me.rueegger.Gatekeeper/data`, also auf unser eigenes Datenverzeichnis, nicht auf
+das Home des Nutzers. `XDG_DATA_DIRS` enthält `/app/share` und `/usr/share`; unter
+`/app/share/applications` steht ausgerechnet unser eigener Desktop-Eintrag.
+
+**Entscheidung**: Das Manifest fordert `--filesystem=host-os:ro` an; das `/usr` des Hosts
+erscheint dann unter `/run/host/usr`. Der Kern erkennt die Sandbox an `/.flatpak-info` und
+bildet die Suchpfade dann ausdrücklich, ohne `XDG_DATA_HOME` und `XDG_DATA_DIRS`: das Home
+des Nutzers über `$HOME`, die Systemverzeichnisse über `/run/host/usr`, die Export-Pfade von
+Flatpak und Snap unter `/var` unverändert. Aus demselben Grund werden `TryExec` und
+nicht-absolute Programme in der Sandbox gegen `/run/host/usr/bin` aufgelöst statt gegen den
+`PATH` der Runtime.
+
+**Konsequenz**: Die Pfadbildung hat zwei Zweige, die getrennt getestet werden. Ein Test hält
+ausdrücklich fest, dass in der Sandbox weder `/usr/share/applications` noch `/app/...` noch
+`~/.var/app/...` gescannt werden. Gäbe es diese Trennung nicht, böte Gatekeeper Anwendungen
+der Runtime als Browser an und im schlimmsten Fall sich selbst.
+
+Bestätigt am laufenden Paket: Sandbox und Host finden dieselben drei Browser.

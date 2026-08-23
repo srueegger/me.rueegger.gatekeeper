@@ -174,7 +174,9 @@ Reparatur-Knopf ein.
 
 ---
 
-## 5. Flatpak-Berechtigungen (Entwurf)
+## 5. Flatpak-Berechtigungen
+
+Verifiziert am gebauten Paket, nicht nur entworfen:
 
 ```yaml
 finish-args:
@@ -186,34 +188,36 @@ finish-args:
   # Kern: Prozesse auf dem Host starten
   - --talk-name=org.freedesktop.Flatpak
 
-  # .desktop-Dateien lesen
-  - --filesystem=/usr/share/applications:ro
-  - --filesystem=/usr/local/share/applications:ro
+  # Desktop-Einträge und Symbole der Browser
+  - --filesystem=host-os:ro
   - --filesystem=xdg-data/applications:ro
-  - --filesystem=/var/lib/flatpak/exports/share:ro
   - --filesystem=xdg-data/flatpak/exports/share:ro
-  - --filesystem=/var/lib/snapd/desktop:ro
-
-  # Icons der Browser
-  - --filesystem=/usr/share/icons:ro
-  - --filesystem=/usr/share/pixmaps:ro
   - --filesystem=xdg-data/icons:ro
+  - --filesystem=/var/lib/flatpak/exports/share:ro
+  - --filesystem=/var/lib/snapd/desktop:ro
 
   # Default-Browser setzen
   - --filesystem=xdg-config/mimeapps.list:create
 ```
 
-Ehrlich bleiben: `--talk-name=org.freedesktop.Flatpak` erlaubt ohnehin beliebige Host-Befehle, die
-granulare Dateiliste ist damit eher Dokumentation als Härtung. Sie bleibt trotzdem granular, weil
-sie den tatsächlichen Bedarf sichtbar macht und die App ohne die Portal-Berechtigung wenigstens
-noch die Browser *anzeigen* kann.
+**Warum `host-os` und nicht die einzelnen `/usr`-Pfade**: Flatpak lehnt
+`--filesystem=/usr/share/applications` ab, weil `/usr` in der Sandbox der Runtime gehört.
+Das `/usr` des Hosts ist nur über `host-os` erreichbar und erscheint dann unter
+`/run/host/usr`. In derselben Falle stecken die XDG-Variablen: In der Sandbox zeigt
+`XDG_DATA_HOME` auf das app-eigene Datenverzeichnis und `XDG_DATA_DIRS` auf `/app/share`
+und `/usr/share` der Runtime. Ausgewertet würden sie Anwendungen der Runtime als Browser
+anbieten. Der Kern erkennt die Sandbox deshalb an `/.flatpak-info` und bildet die Suchpfade
+in diesem Fall ausdrücklich. Siehe ADR-9.
 
-**Icons in der Sandbox**: Qt sucht Icon-Themes nur in den Runtime-Pfaden und findet die Host-Themes
-nicht. `QIcon::setThemeSearchPaths()` und `setFallbackSearchPaths()` müssen beim Start um die oben
-gemounteten Host-Pfade erweitert werden. Snap-Einträge nutzen häufig absolute Icon-Pfade, die
-direkt geladen werden.
+Ehrlich bleiben: `--talk-name=org.freedesktop.Flatpak` erlaubt ohnehin beliebige
+Host-Befehle, die granulare Dateiliste ist damit eher Dokumentation als Härtung. Sie bleibt
+trotzdem granular, weil sie den tatsächlichen Bedarf sichtbar macht und die App ohne die
+Portal-Berechtigung wenigstens noch die Browser *anzeigen* kann.
 
----
+**Icons in der Sandbox**: Qt sucht Icon-Themes nur in den Pfaden der eigenen Runtime und
+findet die Themes des Hosts nicht. `QIcon::setThemeSearchPaths()` wird beim Start um
+`/run/host/usr/share/icons`, `/run/host/share/icons` und `/run/host/user-share/icons`
+erweitert. Snap-Einträge nutzen häufig absolute Icon-Pfade, die direkt geladen werden.
 
 ## 6. Technologie-Entscheidung
 
