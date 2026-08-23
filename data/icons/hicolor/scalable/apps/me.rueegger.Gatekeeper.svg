@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128">
+  <!-- Ein Weg, der sich teilt: eine hereinkommende Verbindung, drei mögliche Ziele.
+       Das ist genau, was die App tut. -->
+  <defs>
+    <linearGradient id="body" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#5b8def"/>
+      <stop offset="1" stop-color="#3a5fc4"/>
+    </linearGradient>
+  </defs>
+
+  <rect x="8" y="8" width="112" height="112" rx="26" fill="url(#body)"/>
+
+  <g fill="none" stroke="#ffffff" stroke-width="7" stroke-linecap="round" stroke-linejoin="round">
+    <!-- Eingang -->
+    <path d="M64 96 L64 74"/>
+    <!-- Verzweigung zu drei Zielen -->
+    <path d="M64 74 C64 60 34 62 34 48"/>
+    <path d="M64 74 L64 48"/>
+    <path d="M64 74 C64 60 94 62 94 48"/>
+  </g>
+
+  <g fill="#ffffff">
+    <circle cx="64" cy="102" r="8"/>
+    <circle cx="34" cy="40" r="9"/>
+    <circle cx="64" cy="40" r="9"/>
+    <circle cx="94" cy="40" r="9"/>
+  </g>
+</svg>

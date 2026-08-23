@@ -1,0 +1,54 @@
+id: me.rueegger.Gatekeeper
+runtime: org.kde.Platform
+runtime-version: '6.10'
+sdk: org.kde.Sdk
+command: gatekeeper
+
+sdk-extensions:
+  - org.freedesktop.Sdk.Extension.rust-stable
+
+build-options:
+  append-path: /usr/lib/sdk/rust-stable/bin
+  env:
+    # Der Generator legt die vendorten Kisten und die Cargo-Konfiguration hierher.
+    CARGO_HOME: /run/build/gatekeeper/cargo
+
+finish-args:
+  - --share=ipc
+  - --socket=wayland
+  - --socket=fallback-x11
+  - --device=dri
+
+  # Kern der Anwendung: Zielbrowser laufen auf dem Host und werden direkt über ihre
+  # Exec-Zeile gestartet. Aus der Sandbox geht das nur über das Host-Command-Portal.
+  # Alle bequemen Alternativen (xdg-open, OpenURI-Portal, QDesktopServices) schlagen den
+  # Default-Handler nach, und das sind wir selbst. Siehe ADR-1 und ADR-2.
+  - --talk-name=org.freedesktop.Flatpak
+
+  # Desktop-Einträge der installierten Browser lesen.
+  - --filesystem=/usr/share/applications:ro
+  - --filesystem=/usr/local/share/applications:ro
+  - --filesystem=xdg-data/applications:ro
+  - --filesystem=/var/lib/flatpak/exports/share:ro
+  - --filesystem=xdg-data/flatpak/exports/share:ro
+  - --filesystem=/var/lib/snapd/desktop:ro
+
+  # Deren Symbole. Qt findet die Icon-Themes des Hosts sonst nicht.
+  - --filesystem=/usr/share/icons:ro
+  - --filesystem=/usr/share/pixmaps:ro
+  - --filesystem=xdg-data/icons:ro
+
+  # Sich selbst als Standardbrowser eintragen.
+  - --filesystem=xdg-config/mimeapps.list:create
+
+modules:
+  - name: gatekeeper
+    buildsystem: cmake-ninja
+    config-opts:
+      - -DCMAKE_BUILD_TYPE=RelWithDebInfo
+      # Im Paketbau gibt es kein Netz; die Abhängigkeiten liegen vendored vor.
+      - -DGK_CARGO_OFFLINE=ON
+    sources:
+      - type: dir
+        path: ..
+      - generated-sources.json

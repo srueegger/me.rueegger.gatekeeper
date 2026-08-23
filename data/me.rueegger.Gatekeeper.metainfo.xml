@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<component type="desktop-application">
+  <id>me.rueegger.Gatekeeper</id>
+
+  <metadata_license>CC0-1.0</metadata_license>
+  <project_license>GPL-2.0-only</project_license>
+
+  <name>Gatekeeper</name>
+  <summary>Choose which browser opens a link</summary>
+
+  <description>
+    <p>
+      Gatekeeper registers itself as the default browser. When a link is clicked anywhere on
+      the desktop, in a mail client, a chat window, a terminal or a PDF viewer, Gatekeeper
+      shows a small dialog listing the installed browsers and starts the one that is chosen.
+    </p>
+    <p>
+      Browsers are found regardless of how they were installed. Native packages, Flatpaks and
+      Snaps all appear in the same list, and entries that register the same browser twice are
+      merged into one.
+    </p>
+    <p>
+      The target domain is shown prominently before anything is opened, which makes it
+      possible to see where a link actually leads while there is still time to change your
+      mind.
+    </p>
+  </description>
+
+  <launchable type="desktop-id">me.rueegger.Gatekeeper.desktop</launchable>
+
+  <provides>
+    <binary>gatekeeper</binary>
+  </provides>
+
+  <categories>
+    <category>Network</category>
+    <category>WebBrowser</category>
+  </categories>
+
+  <content_rating type="oars-1.1"/>
+
+  <developer id="me.rueegger">
+    <name>Samuel Rüegger</name>
+  </developer>
+
+  <url type="homepage">https://github.com/srueegger/me.rueegger.gatekeeper</url>
+  <url type="bugtracker">https://github.com/srueegger/me.rueegger.gatekeeper/issues</url>
+  <url type="vcs-browser">https://github.com/srueegger/me.rueegger.gatekeeper</url>
+
+  <releases>
+    <release version="0.1.0" type="development" date="2026-08-23">
+      <description>
+        <p>Early development. Not yet usable.</p>
+      </description>
+    </release>
+  </releases>
+</component>

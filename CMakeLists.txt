@@ -118,3 +118,23 @@ target_link_libraries(gatekeeper PRIVATE
     Qt6::QuickControls2
     gatekeeper_ffi
 )
+
+# --------------------------------------------------------------------------------------
+# Installation
+# --------------------------------------------------------------------------------------
+
+install(TARGETS gatekeeper
+    RUNTIME DESTINATION "${CMAKE_INSTALL_BINDIR}"
+)
+
+install(FILES data/me.rueegger.Gatekeeper.desktop
+    DESTINATION "${CMAKE_INSTALL_DATADIR}/applications"
+)
+
+install(FILES data/me.rueegger.Gatekeeper.metainfo.xml
+    DESTINATION "${CMAKE_INSTALL_DATADIR}/metainfo"
+)
+
+install(FILES data/icons/hicolor/scalable/apps/me.rueegger.Gatekeeper.svg
+    DESTINATION "${CMAKE_INSTALL_DATADIR}/icons/hicolor/scalable/apps"
+)

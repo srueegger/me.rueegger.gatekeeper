@@ -1,0 +1,16 @@
+[Desktop Entry]
+Type=Application
+Version=1.0
+Name=Gatekeeper
+GenericName=Browser Chooser
+GenericName[de]=Browser-Auswahl
+Comment=Choose which browser opens a link
+Comment[de]=Auswählen, welcher Browser einen Link öffnet
+Exec=gatekeeper %u
+Icon=me.rueegger.Gatekeeper
+Terminal=false
+StartupNotify=true
+Categories=Network;WebBrowser;
+Keywords=browser;chooser;link;url;default;
+Keywords[de]=Browser;Auswahl;Link;URL;Standard;
+MimeType=x-scheme-handler/http;x-scheme-handler/https;text/html;application/xhtml+xml;
