@@ -1,0 +1,28 @@
+[package]
+name = "gatekeeper-ffi"
+description = "cxx bridge between the Gatekeeper core and its Qt frontend"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[lib]
+crate-type = ["staticlib"]
+
+[dependencies]
+gatekeeper-core = { path = "../gatekeeper-core" }
+cxx = "1"
+env_logger = "0.11"
+
+[build-dependencies]
+cxx-build = "1"
+
+# Der Workspace verbietet `unsafe`. Genau hier geht das nicht: die von cxx erzeugte
+# Brücke besteht aus `unsafe`-Blöcken und `#[no_mangle]`-Symbolen. Die Ausnahme bleibt
+# deshalb auf diese Kiste beschränkt, damit sie im Kern weiter gilt.
+[lints.rust]
+unsafe_code = "allow"
+
+[lints.clippy]
+all = { level = "deny", priority = -1 }

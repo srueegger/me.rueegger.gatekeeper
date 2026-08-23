@@ -114,3 +114,47 @@ offen, bestimmt aber nicht die frühen Entscheidungen.
 **Konsequenz**: Metainfo und Manifest werden trotzdem sauber gehalten, damit eine spätere
 Einreichung kein Umbau wird. Die Berechtigungen bleiben granular begründet (ADR-2), auch wenn
 niemand sie vorerst prüft.
+
+---
+
+## ADR-7: Cargo wird direkt aus CMake aufgerufen, ohne Corrosion
+
+**Status**: akzeptiert (2026-08-23). Verfeinert ADR-4.
+
+**Kontext**: ADR-4 nannte „CMake + Corrosion" als Bindeglied zwischen Rust und C++. Corrosion
+ist in Debian als Paket verfügbar, seine cxx-Unterstützung (`corrosion_add_cxxbridge`) setzt
+aber zusätzlich das Kommandozeilenwerkzeug `cxxbridge` voraus. Flatpak baut ohne Netz, also
+müssten für den Paketbau sowohl Corrosion als auch `cxxbridge` eigens mitgeliefert und gebaut
+werden. Gleichzeitig erzeugt `cxx_build` in `build.rs` Header und Glue-Code bereits innerhalb
+des normalen Cargo-Laufs, ganz ohne Zusatzwerkzeug.
+
+**Entscheidung**: Kein Corrosion. CMake ruft `cargo build` über ein `add_custom_command` auf,
+setzt `CARGO_TARGET_DIR` auf ein bekanntes Verzeichnis und bindet die entstehende `staticlib`
+über eine INTERFACE-Bibliothek ein, die zugleich den von cxx erzeugten Header-Pfad und die
+Systembibliotheken (`pthread`, `dl`, `m`) mitbringt. Der Schalter `GK_CARGO_OFFLINE` schaltet
+`--offline --locked` zu, wie es der Flatpak-Bau braucht.
+
+**Konsequenz**: Rund 40 Zeilen CMake, die wir selbst pflegen, dafür zwei Abhängigkeiten
+weniger im Paketbau. Was Corrosion sonst noch abnimmt, betrifft uns nicht: Es gibt genau ein
+Ziel, genau eine Plattform und keine Cross-Kompilierung. Käme das dazu, ist die Entscheidung
+neu zu treffen.
+
+---
+
+## ADR-8: Daten erreichen QML über einen registrierten Singleton, nicht über Context-Properties
+
+**Status**: akzeptiert (2026-08-23)
+
+**Kontext**: Der erste Entwurf reichte Browserliste und Ziel-URL mit
+`QQmlContext::setContextProperty` an QML. Das funktioniert, ist aber für `qmllint` und den
+QML-Compiler unsichtbar: Jeder Zugriff darauf gilt als unqualifiziert, wird nicht typgeprüft
+und nicht zu C++ kompiliert. `qmllint` meldete das entsprechend.
+
+**Entscheidung**: Ein `Session`-Typ mit `QML_ELEMENT` und `QML_SINGLETON` trägt die Daten als
+`Q_PROPERTY`. QML importiert `GatekeeperUi` und greift über `Session.browsers`,
+`Session.targetUri` und `Session.targetHost` zu. Die Auswahl geht über `Session.choose(index)`
+zurück nach C++.
+
+**Konsequenz**: `qmllint` läuft ohne Befund, die Zugriffe sind typgeprüft und `qmlcachegen`
+kann sie übersetzen. Preis ist eine zusätzliche Header/Quelldatei und ein statischer Zeiger,
+der vor dem Laden der QML-Wurzel gesetzt wird.

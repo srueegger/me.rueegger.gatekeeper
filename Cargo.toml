@@ -1,5 +1,5 @@
 [workspace]
-members = ["crates/gatekeeper-core"]
+members = ["crates/gatekeeper-core", "crates/gatekeeper-ffi"]
 resolver = "3"
 
 [workspace.package]

@@ -33,23 +33,41 @@ Der Kern des Projekts. Änderungen daran nie ohne Rückfrage:
 Desktop-Entries parsen, Browser deduplizieren, Herkunft bestimmen, Regeln matchen, `Exec`-Feldcodes
 auflösen, Prozess starten. Headless testbar, keine Qt-Abhängigkeit.
 
-Darüber eine dünne Qt-6-Schicht in C++ mit QML, angebunden über `cxx`, gebaut mit CMake +
-Corrosion (ADR-4). `main()` liegt in C++ und ruft zuerst `resolve(url)` im Rust-Kern auf. Greift
-eine gespeicherte Regel, wird `QGuiApplication` nie konstruiert. Der Browser startet ohne jede
-GUI-Initialisierung.
+Darüber eine dünne Qt-6-Schicht in C++ mit QML, angebunden über `cxx` (ADR-4). CMake ruft Cargo
+direkt auf, ohne Corrosion (ADR-7). `main()` liegt in C++ und befragt zuerst den Rust-Kern. Wird
+das Ziel abgelehnt oder greift später eine gespeicherte Regel, endet der Aufruf, bevor
+`QGuiApplication` überhaupt konstruiert wird.
+
+Daten erreichen QML ausschliesslich über den registrierten Singleton `Session`, nie über
+Context-Properties (ADR-8). Context-Properties sind für `qmllint` und `qmlcachegen` unsichtbar.
 
 ## Verzeichnisse
 
 ```
 crates/gatekeeper-core/   Discovery, Parsing, Regeln, Launcher. Keine GUI, voll unit-testbar
 crates/gatekeeper-ffi/    cxx-Bridge, schmale und stabile Fläche zum C++-Teil
-src/                      C++/QML-Frontend + main()
+src/                      C++/QML-Frontend, main() und Session
+src/qml/                  QML-Modul GatekeeperUi
 data/                     .desktop, AppStream-Metainfo, Icons
 build-aux/                Flatpak-Manifest, flatpak-cargo-generator
 docs/ANALYSE.md           Technische Analyse, Stack-Entscheidung, Risiken
 docs/DECISIONS.md         Architecture Decision Records, append-only
 tests/fixtures/           Echte .desktop-Dateien (nativ/Flatpak/Snap) als Testdaten
 ```
+
+## Bauen
+
+```
+cargo test                                        # nur der Kern, ohne Qt
+cargo run --example scan -- https://example.com   # Kern gegen das laufende System
+
+cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Debug
+cmake --build build
+cmake --build build --target all_qmllint
+```
+
+Die Konfiguration ist warnungsfrei und soll es bleiben. Eine neue Warnung ist ein Befund, kein
+Rauschen.
 
 ## Arbeitsweise
 
@@ -66,7 +84,9 @@ tests/fixtures/           Echte .desktop-Dateien (nativ/Flatpak/Snap) als Testda
   Konsequenz. Append-only; überholte Einträge werden als „superseded by ADR-N" markiert, nicht
   umgeschrieben.
 - Vor jedem Commit: `cargo fmt --all`, `cargo clippy --all-targets -- -D warnings`, `cargo test`.
-  Bei QML-Änderungen zusätzlich `qmllint`.
+  Bei QML-Änderungen zusätzlich `cmake --build build --target all_qmllint`.
+- `unsafe` ist im Workspace verboten. Einzige Ausnahme ist `gatekeeper-ffi`, weil der von cxx
+  erzeugte Code daraus besteht. Die Ausnahme bleibt auf diese Kiste beschränkt.
 
 ## Testen
 
