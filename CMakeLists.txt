@@ -87,6 +87,8 @@ target_link_libraries(gatekeeper_ffi INTERFACE "${GK_RUST_STATICLIB}" pthread dl
 
 qt_add_executable(gatekeeper
     src/main.cpp
+    src/IconProvider.h
+    src/IconProvider.cpp
     src/Session.h
     src/Session.cpp
 )

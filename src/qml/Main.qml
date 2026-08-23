@@ -11,7 +11,9 @@ ApplicationWindow {
     id: root
 
     width: 460
-    height: Math.min(560, header.implicitHeight + list.contentHeight + 80)
+    // Die Höhe kommt vom Layout, nicht aus einer Summe von Hand. Sonst rechnet man beim
+    // nächsten hinzugefügten Element daneben, ohne dass es auffällt.
+    height: Math.min(560, content.implicitHeight + 2 * content.anchors.margins)
     visible: true
     title: qsTr("Gatekeeper")
 
@@ -26,6 +28,8 @@ ApplicationWindow {
     }
 
     ColumnLayout {
+        id: content
+
         anchors.fill: parent
         anchors.margins: 16
         spacing: 12
@@ -36,8 +40,11 @@ ApplicationWindow {
             Layout.fillWidth: true
             spacing: 2
 
+            // Ohne URL ist das keine Auswahl, sondern eine Übersicht: So wird
+            // Gatekeeper aus dem Anwendungsmenü heraus gestartet.
             Label {
-                text: qsTr("Link öffnen mit")
+                text: Session.targetUri.length > 0 ? qsTr("Link öffnen mit")
+                                                   : qsTr("Installierte Browser")
                 font.pointSize: root.font.pointSize + 1
                 font.bold: true
             }
@@ -73,16 +80,18 @@ ApplicationWindow {
         }
 
         // Chrome und Firefox tragen sich beim Start gern selbst wieder als Standard ein.
-        // Der Hinweis erscheint nur, wenn das tatsächlich passiert ist, und lässt sich an
-        // Ort und Stelle beheben.
-        Pane {
+        // Der Hinweis erscheint nur, wenn Gatekeeper gerade nicht zuständig ist, und lässt
+        // sich an Ort und Stelle beheben.
+        Frame {
+            id: defaultBanner
+
             visible: Session.defaultBrowserHint.length > 0
-            padding: 10
+            padding: 12
             Layout.fillWidth: true
 
-            RowLayout {
+            ColumnLayout {
                 anchors.fill: parent
-                spacing: 10
+                spacing: 8
 
                 Label {
                     text: Session.defaultBrowserHint
@@ -91,7 +100,8 @@ ApplicationWindow {
                 }
 
                 Button {
-                    text: qsTr("Übernehmen")
+                    text: qsTr("Gatekeeper als Standardbrowser festlegen")
+                    Layout.fillWidth: true
                     onClicked: Session.makeDefaultBrowser()
                 }
             }
@@ -111,6 +121,9 @@ ApplicationWindow {
 
             Layout.fillWidth: true
             Layout.fillHeight: true
+            // Eine ListView bringt von sich aus keine implizite Höhe mit. Ohne diese
+            // Angabe rechnet das Layout mit null und das Fenster bliebe zu klein.
+            Layout.preferredHeight: contentHeight
             model: Session.browsers
             focus: true
             clip: true
@@ -139,10 +152,11 @@ ApplicationWindow {
                         Layout.preferredWidth: 12
                     }
 
+                    // Der Provider kennt Theme-Namen und absolute Pfade und liefert
+                    // notfalls ein allgemeines Symbol. Ein "image://theme/..." gäbe es
+                    // in Qt Quick nicht, das Bild bliebe still leer.
                     Image {
-                        source: entry.modelData.icon.startsWith("/")
-                                ? "file://" + entry.modelData.icon
-                                : "image://theme/" + entry.modelData.icon
+                        source: "image://browsericon/" + entry.modelData.icon
                         sourceSize: Qt.size(28, 28)
                         fillMode: Image.PreserveAspectFit
                         Layout.preferredWidth: 28

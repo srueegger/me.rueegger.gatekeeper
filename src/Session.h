@@ -3,10 +3,9 @@
 #include <QObject>
 #include <QString>
 #include <QVariantList>
+#include <QtQml/QJSEngine>
+#include <QtQml/QQmlEngine>
 #include <QtQml/qqmlregistration.h>
-
-class QJSEngine;
-class QQmlEngine;
 
 /// Alles, was die Oberfläche über den aktuellen Aufruf wissen muss.
 ///
@@ -31,7 +30,21 @@ class Session : public QObject
                        defaultBrowserHintChanged)
 
 public:
-    explicit Session(QObject *parent = nullptr) : QObject(parent) { }
+    /// Der Parameter hat bewusst keinen Vorgabewert.
+    ///
+    /// Qt entscheidet in `singletonConstructionMode()` so:
+    ///
+    /// ```
+    /// if constexpr (std::is_default_constructible<T>::value)
+    ///     return SingletonConstructionMode::Constructor;
+    /// if constexpr (HasSingletonFactory<T>::value)
+    ///     return SingletonConstructionMode::Factory;
+    /// ```
+    ///
+    /// Standardkonstruierbar schlägt also die Fabrik. Ein `= nullptr` an dieser Stelle
+    /// würde `create()` lautlos abschalten, und QML bekäme eine zweite, leere Instanz.
+    /// Die Anwendung startet dann mit leerem Fenster, ohne jede Fehlermeldung.
+    explicit Session(QObject *parent) : QObject(parent) { }
 
     QVariantList browsers() const { return m_browsers; }
     QString targetUri() const { return m_targetUri; }
@@ -70,7 +83,13 @@ public:
     /// Die Instanz, die QML als Singleton bekommt. Wird vor dem Laden der QML-Wurzel
     /// gesetzt; QML greift erst danach zu.
     static Session *instance;
-    static Session *create(QQmlEngine *, QJSEngine *) { return instance; }
+    static Session *create(QQmlEngine *, QJSEngine *)
+    {
+        // Die Instanz gehört main() und liegt auf dem Stack. Ohne diesen Hinweis würde
+        // die Engine sie beim Aufräumen zusätzlich löschen wollen.
+        QJSEngine::setObjectOwnership(instance, QJSEngine::CppOwnership);
+        return instance;
+    }
 
 Q_SIGNALS:
     void launchErrorChanged();
@@ -84,3 +103,16 @@ private:
     QString m_defaultBrowserHint;
     bool m_rememberChoice = false;
 };
+
+// Qt wählt zwischen Konstruktor und Fabrik nach dieser Regel aus qqmlprivate.h:
+//
+//     if constexpr (std::is_default_constructible<T>::value)
+//         return SingletonConstructionMode::Constructor;
+//     if constexpr (HasSingletonFactory<T>::value)
+//         return SingletonConstructionMode::Factory;
+//
+// Wäre Session standardkonstruierbar, würde `create()` stillschweigend übergangen und QML
+// bekäme eine zweite, leere Instanz. Die Anwendung startete dann mit leerem Fenster, ohne
+// Fehlermeldung und ohne dass ein Test es merkte. Deshalb hier festgenagelt.
+static_assert(!std::is_default_constructible_v<Session>,
+              "Session darf nicht standardkonstruierbar sein, sonst ignoriert Qt create()");

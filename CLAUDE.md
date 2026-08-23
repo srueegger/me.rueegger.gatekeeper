@@ -93,6 +93,15 @@ Regeltreffer nimmt: kein Fenster, keine `QGuiApplication`.
 Die Konfiguration ist warnungsfrei und soll es bleiben. Eine neue Warnung ist ein Befund, kein
 Rauschen.
 
+Die Oberfläche lässt sich ohne Bildschirm prüfen:
+
+```
+QT_QPA_PLATFORM=offscreen GATEKEEPER_GRAB=/pfad/fenster.png ./build/gatekeeper https://example.com
+```
+
+Das zeichnet das Fenster in eine Datei und beendet sich. Bei QML-Änderungen bitte benutzen: Ein
+leeres Fenster und fehlende Symbole erzeugen keine einzige Warnung.
+
 ## Arbeitsweise
 
 - **Regelmässig committen.** Jede abgeschlossene, für sich sinnvolle Einheit bekommt einen Commit.
@@ -133,6 +142,15 @@ Damit ist Invariante 3 überprüfbar und nicht bloss Vorsatz.
   und `setFallbackSearchPaths()` müssen um die Host-Pfade erweitert werden.
 - **Wayland-Fokus**: `XDG_ACTIVATION_TOKEN` muss an den Zielbrowser durchgereicht werden, sonst
   erscheint dessen Fenster ohne Fokus.
+- **QML-Singletons dürfen nicht standardkonstruierbar sein.** Qt entscheidet in
+  `singletonConstructionMode()` zuerst über `std::is_default_constructible`, erst danach über
+  `create()`. Ein `QObject *parent = nullptr` im Konstruktor schaltet die Fabrik lautlos ab, QML
+  bekommt eine zweite leere Instanz und die App startet mit leerem Fenster, ohne Fehlermeldung.
+  In `Session.h` hält ein `static_assert` das fest.
+- **`image://theme/...` gibt es in Qt Quick nicht.** Ein `Image` mit dieser Quelle bleibt leer.
+  Symbole laufen über `IconProvider`, der `QIcon` befragt und Theme-Namen wie absolute Pfade
+  kennt. Dazu muss ein Theme-Name gesetzt sein: In der Sandbox gibt es kein Plattform-Theme,
+  weshalb `main()` bei Bedarf `hicolor` einsetzt.
 - **Default-Klau**: Chrome und Firefox setzen sich beim Start gern selbst als Default. Gatekeeper
   prüft das bei jedem Start und bietet Reparatur an.
 - **`text/html` gehört beim Eintragen dazu, beim Prüfen nicht.** KDE fällt auf `text/html`

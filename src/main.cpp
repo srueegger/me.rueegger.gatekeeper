@@ -4,13 +4,18 @@
 // erst danach entsteht eine QGuiApplication. Wird das Ziel abgelehnt oder greift später
 // eine gespeicherte Regel, endet der Aufruf, bevor Qt überhaupt hochgefahren ist.
 
+#include <QCoreApplication>
 #include <QGuiApplication>
 #include <QIcon>
 #include <QQmlApplicationEngine>
+#include <QQuickStyle>
+#include <QQuickWindow>
+#include <QTimer>
 #include <QTextStream>
 #include <QVariantList>
 #include <QVariantMap>
 
+#include "IconProvider.h"
 #include "Session.h"
 #include "gatekeeper-ffi/src/lib.rs.h"
 
@@ -32,22 +37,40 @@ QStringList toQStringList(const rust::Vec<rust::String> &values)
 
 // Qt sucht Icon-Themes nur in den Pfaden der eigenen Runtime. In der Flatpak-Sandbox
 // liegen die Themes der Browser aber auf dem Host und erscheinen unter /run/host.
-// Ohne diese Ergänzung bleibt die Liste ohne Symbole. Ausserhalb der Sandbox schaden
-// die zusätzlichen Pfade nicht, sie existieren dort schlicht nicht.
-void addHostIconPaths()
+// Ausserhalb der Sandbox schaden die zusätzlichen Pfade nicht, sie existieren dort
+// schlicht nicht.
+void setUpIconLookup()
 {
-    QStringList paths = QIcon::themeSearchPaths();
-    for (const QString &host : {QStringLiteral("/run/host/usr/share/icons"),
-                                QStringLiteral("/run/host/usr/share/pixmaps"),
+    // Theme-Verzeichnisse, also solche mit index.theme und Grössenunterordnern.
+    QStringList themePaths = QIcon::themeSearchPaths();
+    for (const QString &path : {QStringLiteral("/run/host/usr/share/icons"),
                                 QStringLiteral("/run/host/share/icons"),
                                 QStringLiteral("/run/host/user-share/icons"),
                                 QStringLiteral("/var/lib/flatpak/exports/share/icons"),
-                                QStringLiteral("/usr/share/icons"),
-                                QStringLiteral("/usr/share/pixmaps")}) {
-        if (!paths.contains(host))
-            paths.append(host);
+                                QStringLiteral("/usr/share/icons")}) {
+        if (!themePaths.contains(path))
+            themePaths.append(path);
     }
-    QIcon::setThemeSearchPaths(paths);
+    QIcon::setThemeSearchPaths(themePaths);
+
+    // Flache Verzeichnisse ohne Theme-Struktur. Chromium liegt bei Debian genau dort.
+    QStringList flatPaths = QIcon::fallbackSearchPaths();
+    for (const QString &path : {QStringLiteral("/run/host/usr/share/pixmaps"),
+                                QStringLiteral("/usr/share/pixmaps")}) {
+        if (!flatPaths.contains(path))
+            flatPaths.append(path);
+    }
+    QIcon::setFallbackSearchPaths(flatPaths);
+
+    // hicolor ist nach der Icon-Theme-Spec das Basis-Theme, in dem Anwendungen ihre
+    // Symbole ablegen. Ohne diesen Rückfall findet ein Breeze-Theme die Browsersymbole
+    // nicht, weil es sie selbst nicht mitbringt.
+    QIcon::setFallbackThemeName(QStringLiteral("hicolor"));
+
+    // In der Sandbox und unter der Offscreen-Plattform gibt es kein Plattform-Theme, das
+    // einen Namen setzen würde. Ohne Namen liefert QIcon::fromTheme grundsätzlich nichts.
+    if (QIcon::themeName().isEmpty())
+        QIcon::setThemeName(QStringLiteral("hicolor"));
 }
 
 /// Wie der Aufruf zu verstehen ist.
@@ -161,7 +184,7 @@ int main(int argc, char *argv[])
         return 0;
     }
 
-    Session session;
+    Session session(nullptr);
     session.setBrowsers(std::move(model));
     session.setTarget(toQString(target.uri), toQString(target.display_host));
     session.refreshDefaultBrowserHint();
@@ -181,15 +204,34 @@ int main(int argc, char *argv[])
     QGuiApplication app(argc, argv);
     app.setApplicationName(QStringLiteral("Gatekeeper"));
     app.setDesktopFileName(QStringLiteral("me.rueegger.Gatekeeper"));
-    addHostIconPaths();
+    setUpIconLookup();
+
+    // Basic ist der flache Vorgabestil und sieht auf einem Desktop fremd aus. Die
+    // KDE-Runtime des Flatpaks bringt keinen org.kde.desktop-Stil mit, Fusion ist dort
+    // das Nächstliegende und richtet sich nach der Farbpalette des Systems.
+    // QT_QUICK_CONTROLS_STYLE sticht diese Wahl weiterhin.
+    if (QQuickStyle::name().isEmpty())
+        QQuickStyle::setStyle(QStringLiteral("Fusion"));
 
     Session::instance = &session;
 
     QQmlApplicationEngine engine;
+    engine.addImageProvider(QStringLiteral("browsericon"), new IconProvider);
     engine.loadFromModule("GatekeeperUi", "Main");
 
     if (engine.rootObjects().isEmpty())
         return 3;
+
+    // Zeichnet das Fenster in eine Datei und beendet sich. Ohne das lässt sich die
+    // Oberfläche nicht ohne Bildschirm prüfen, und genau dabei sind der leere Singleton
+    // und die fehlenden Icons aufgefallen.
+    if (const QByteArray grabTo = qgetenv("GATEKEEPER_GRAB"); !grabTo.isEmpty()) {
+        auto *window = qobject_cast<QQuickWindow *>(engine.rootObjects().first());
+        QTimer::singleShot(800, window, [window, grabTo] {
+            window->grabWindow().save(QString::fromLocal8Bit(grabTo));
+            QCoreApplication::quit();
+        });
+    }
 
     return app.exec();
 }
