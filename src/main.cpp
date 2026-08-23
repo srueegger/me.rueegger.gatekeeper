@@ -122,6 +122,12 @@ int main(int argc, char *argv[])
 
     if (invocation.mode == Invocation::Mode::List) {
         QTextStream out(stdout);
+
+        const auto status = gatekeeper::default_browser_status();
+        out << (status.ours ? QStringLiteral("Standardbrowser: Gatekeeper")
+                            : QStringLiteral("Standardbrowser: ") + toQString(status.message))
+            << "\n\n";
+
         for (const QVariant &item : std::as_const(model)) {
             const QVariantMap browser = item.toMap();
             out << browser[QStringLiteral("name")].toString() << "  ["
