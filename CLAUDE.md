@@ -66,6 +66,19 @@ cmake --build build
 cmake --build build --target all_qmllint
 ```
 
+Als Flatpak. Zustandsverzeichnis, Baubaum und Repo müssen auf demselben Dateisystem liegen,
+sonst scheitert der Export an fehlenden Hardlinks:
+
+```
+cd build-aux
+flatpak-builder --force-clean --user \
+    --state-dir=/pfad/state --repo=/pfad/repo /pfad/builddir \
+    me.rueegger.Gatekeeper.yaml
+```
+
+`flatpak run me.rueegger.Gatekeeper --list` zeigt, was die Sandbox findet. Ohne diesen
+Schalter lässt sich von aussen nicht nachvollziehen, welche Verzeichnisse dort ankommen.
+
 Die Konfiguration ist warnungsfrei und soll es bleiben. Eine neue Warnung ist ein Befund, kein
 Rauschen.
 
@@ -111,5 +124,12 @@ Damit ist Invariante 3 überprüfbar und nicht bloss Vorsatz.
   erscheint dessen Fenster ohne Fokus.
 - **Default-Klau**: Chrome und Firefox setzen sich beim Start gern selbst als Default. Gatekeeper
   prüft das bei jedem Start und bietet Reparatur an.
-- **Flatpak baut offline.** Neue Cargo-Abhängigkeiten erfordern ein neu generiertes
-  `generated-sources.json` im selben Commit.
+- **Flatpak baut offline.** Der Bau ruft `cargo --offline --locked` auf. Neue oder geänderte
+  Cargo-Abhängigkeiten brauchen deshalb ein neu erzeugtes `generated-sources.json` im selben
+  Commit:
+
+  ```
+  python3 build-aux/flatpak-cargo-generator.py Cargo.lock -o build-aux/generated-sources.json
+  ```
+
+  Wird das vergessen, scheitert erst der Paketbau, nicht der lokale. Braucht `python3-tomlkit`.

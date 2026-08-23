@@ -50,4 +50,10 @@ modules:
     sources:
       - type: dir
         path: ..
+        # Baureste gehören nicht ins Paket und kosten beim Kopieren dreistellige Megabyte.
+        skip:
+          - .flatpak-builder
+          - .git
+          - build
+          - target
       - generated-sources.json
