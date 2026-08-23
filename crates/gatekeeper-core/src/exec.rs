@@ -1,7 +1,7 @@
 //! Auflösen von `Exec`-Zeilen zu einem `argv`-Array.
 //!
 //! Das Ergebnis ist immer eine Argumentliste, nie eine Kommandozeile. Es gibt in diesem
-//! Crate keinen Weg, eine Zeichenkette an eine Shell zu geben — URLs sind Fremdeingabe
+//! Crate keinen Weg, eine Zeichenkette an eine Shell zu geben. URLs sind Fremdeingabe
 //! (Invariante 3).
 //!
 //! # Zwei Ebenen von Escaping
@@ -15,7 +15,7 @@
 //!
 //! Exportierte Flatpak-Einträge enthalten Marker der Form `--file-forwarding … @@u %u @@`.
 //! Die sind nicht für den Browser bestimmt, sondern für `flatpak run`, das sie selbst
-//! auswertet. Sie werden deshalb unverändert durchgereicht — nur das `%u` dazwischen wird
+//! auswertet. Sie werden deshalb unverändert durchgereicht. Nur das `%u` dazwischen wird
 //! ersetzt.
 
 use std::fmt;
@@ -25,7 +25,7 @@ use crate::desktop::unescape;
 /// Warum aus einer `Exec`-Zeile kein `argv` wurde.
 #[derive(Debug, PartialEq, Eq)]
 pub enum ExecError {
-    /// Leere oder nur aus Feldcodes bestehende Zeile — kein Programm übrig.
+    /// Leere oder nur aus Feldcodes bestehende Zeile, kein Programm übrig.
     NoProgram,
     /// Ein Anführungszeichen wurde nicht geschlossen.
     UnterminatedQuote,
@@ -45,7 +45,7 @@ impl std::error::Error for ExecError {}
 /// Werte, die für die Feldcodes eingesetzt werden.
 #[derive(Debug, Default, Clone, Copy)]
 pub struct FieldContext<'a> {
-    /// URIs für `%u` und `%U`. Müssen vorher validiert sein — siehe [`crate::uri`].
+    /// URIs für `%u` und `%U`. Müssen vorher validiert sein, siehe [`crate::uri`].
     pub uris: &'a [String],
     /// Wert von `Icon`, eingesetzt für `%i` als `--icon <wert>`.
     pub icon: Option<&'a str>,
@@ -58,7 +58,7 @@ pub struct FieldContext<'a> {
 /// Löst eine `Exec`-Zeile zu einem vollständigen `argv` auf.
 ///
 /// `argv[0]` ist das Programm. Enthält die Zeile keinen URI-Feldcode, aber es liegen URIs
-/// vor, werden sie angehängt — Desktop Actions wie Braves `new-private-window` schreiben
+/// vor, werden sie angehängt. Desktop Actions wie Braves `new-private-window` schreiben
 /// ihre Exec-Zeile ohne Feldcode.
 pub fn build_argv(exec: &str, ctx: &FieldContext<'_>) -> Result<Vec<String>, ExecError> {
     let tokens = tokenize(&unescape(exec))?;
@@ -144,7 +144,7 @@ enum FieldCode {
 /// Erkennt einen Feldcode, der ein vollständiges Argument bildet.
 ///
 /// Nach Spec dürfen Feldcodes nicht in ein Argument eingebettet werden. Eingebettete
-/// Vorkommen bleiben deshalb unangetastet — sie sind kein Feldcode, sondern Text.
+/// Vorkommen bleiben deshalb unangetastet, denn sie sind kein Feldcode, sondern Text.
 fn field_code(token: &str) -> Option<FieldCode> {
     match token {
         // `%f`/`%F` erwarten lokale Pfade. Browser bekommen von uns URIs; für `file:`-URLs
@@ -191,7 +191,7 @@ fn tokenize(line: &str) -> Result<Vec<String>, ExecError> {
                             Some('"' | '`' | '$' | '\\') => {
                                 current.push(chars.next().expect("peek war Some"));
                             }
-                            // Undefinierte Sequenz — Backslash bleibt stehen, statt
+                            // Undefinierte Sequenz. Backslash bleibt stehen, statt
                             // stillschweigend Information zu verlieren.
                             _ => current.push('\\'),
                         },
@@ -385,12 +385,9 @@ mod tests {
         assert_eq!(
             tokenize_without_field_codes("/usr/bin/brave-origin-stable %U").unwrap(),
             tokenize_without_field_codes("/usr/bin/brave-origin-stable %u").unwrap(),
-            "identisches Programm, nur anderer Feldcode — dasselbe Ziel"
+            "identisches Programm, nur anderer Feldcode, also dasselbe Ziel"
         );
-        assert_eq!(
-            tokenize_without_field_codes("firefox %u").unwrap(),
-            ["firefox"]
-        );
+        assert_eq!(tokenize_without_field_codes("firefox %u").unwrap(), ["firefox"]);
     }
 
     #[test]

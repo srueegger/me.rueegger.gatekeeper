@@ -1,12 +1,12 @@
 //! Prüfung der übergebenen URL, bevor sie irgendwo als Argument landet.
 //!
-//! Die URL kommt von aussen — aus einer E-Mail, einem Chat, einem PDF. Sie wird geprüft,
+//! Die URL kommt von aussen: aus einer E-Mail, einem Chat, einem PDF. Sie wird geprüft,
 //! bevor sie in ein `argv` gelangt, nicht danach.
 //!
 //! Der wichtigste Fall: eine Zeichenkette, die mit `-` beginnt, würde vom Zielbrowser als
 //! Schalter gelesen. Bei Chromium-Abkömmlingen ist `--gpu-launcher=…` gleichbedeutend mit
 //! Codeausführung. Ein gültiges URI kann nie so beginnen, weil ein Schema mit einem
-//! Buchstaben anfangen muss — die Schemaprüfung deckt das also mit ab. Ein zusätzlicher
+//! Buchstaben anfangen muss. Die Schemaprüfung deckt das also mit ab. Ein zusätzlicher
 //! expliziter Test hält das bewusst fest, statt sich auf diesen Nebeneffekt zu verlassen.
 
 use std::fmt;

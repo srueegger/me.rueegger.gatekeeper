@@ -45,7 +45,7 @@ impl From<std::io::Error> for ParseError {
     }
 }
 
-/// Eine Gruppe einer Desktop-Datei — `[Desktop Entry]` oder `[Desktop Action …]`.
+/// Eine Gruppe einer Desktop-Datei, also `[Desktop Entry]` oder `[Desktop Action …]`.
 ///
 /// Werte liegen unverändert so vor, wie sie in der Datei stehen. Entschärft wird erst beim
 /// Auslesen, weil `Exec` eigene Quoting-Regeln hat und die allgemeine String-Entschärfung
@@ -128,7 +128,7 @@ impl Group {
     fn insert(&mut self, key: &str, locale: Option<&str>, value: &str) {
         match locale {
             // Nach Spec darf ein Schlüssel je Gruppe nur einmal vorkommen. Kommt er doch
-            // mehrfach, gewinnt der erste — spätere werden verworfen, nicht überschrieben.
+            // mehrfach, gewinnt der erste. Spätere werden verworfen, nicht überschrieben.
             None => {
                 self.values.entry(key.to_string()).or_insert_with(|| value.to_string());
             }
@@ -159,10 +159,8 @@ impl DesktopFile {
     pub fn parse_file(path: &Path) -> Result<Self, ParseError> {
         let bytes = std::fs::read(path)?;
         let text = std::str::from_utf8(&bytes).map_err(|_| ParseError::NotUtf8)?;
-        let id = path
-            .file_name()
-            .map(|name| name.to_string_lossy().into_owned())
-            .unwrap_or_default();
+        let id =
+            path.file_name().map(|name| name.to_string_lossy().into_owned()).unwrap_or_default();
         Self::parse_str(text, id, path.to_path_buf())
     }
 
@@ -176,7 +174,7 @@ impl DesktopFile {
             let line = line.trim_start_matches('\u{feff}');
             let trimmed = line.trim();
 
-            // Leerzeilen und Kommentare. Kommentare stehen auch mitten in Gruppen —
+            // Leerzeilen und Kommentare. Kommentare stehen auch mitten in Gruppen,
             // brave-origin.desktop tut das.
             if trimmed.is_empty() || trimmed.starts_with('#') {
                 continue;
@@ -254,7 +252,7 @@ fn split_locale(key_part: &str) -> Option<(&str, &str)> {
 
 /// Löst die Escape-Sequenzen für Werte vom Typ „string" auf.
 ///
-/// Nicht auf `Exec` anwenden — dort gelten die eigenen Quoting-Regeln aus [`crate::exec`].
+/// Nicht auf `Exec` anwenden, dort gelten die eigenen Quoting-Regeln aus [`crate::exec`].
 pub(crate) fn unescape(value: &str) -> String {
     if !value.contains('\\') {
         return value.to_string();

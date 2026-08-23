@@ -1,4 +1,4 @@
-//! Installierte Browser finden — nativ, als Flatpak und als Snap.
+//! Installierte Browser finden: nativ, als Flatpak und als Snap.
 //!
 //! Der Ablauf: Verzeichnisse in Präzedenzreihenfolge scannen, Kandidaten filtern,
 //! Duplikate zusammenfassen. Kaputte Dateien werden protokolliert und übersprungen; ein
@@ -7,7 +7,7 @@
 //! # Invariante 1
 //!
 //! Die eigene Desktop-ID wird in jeder Quelle gefiltert. Bliebe sie stehen, könnte
-//! Gatekeeper sich selbst starten — und das erzeugt eine Endlosschleife aus Dialogen, die
+//! Gatekeeper sich selbst starten, und das erzeugt eine Endlosschleife aus Dialogen, die
 //! die Sitzung unbenutzbar macht. Dafür gibt es einen eigenen Test je Quelle.
 
 use std::collections::BTreeMap;
@@ -26,8 +26,12 @@ pub enum Origin {
     System,
     /// Im Home-Verzeichnis des Nutzers installiert.
     User,
-    Flatpak { app_id: Option<String> },
-    Snap { instance: Option<String> },
+    Flatpak {
+        app_id: Option<String>,
+    },
+    Snap {
+        instance: Option<String>,
+    },
 }
 
 impl Origin {
@@ -80,13 +84,13 @@ pub struct Browser {
     pub id: String,
     /// Angezeigter Name in der Sprache des Nutzers.
     pub name: String,
-    /// Icon — Theme-Name oder absoluter Pfad.
+    /// Icon, entweder Theme-Name oder absoluter Pfad.
     pub icon: Option<String>,
     pub origin: Origin,
     /// Rohe `Exec`-Zeile. Wird erst beim Start aufgelöst.
     pub exec: String,
     pub path: PathBuf,
-    /// `NoDisplay=true` — gültiger Handler, aber kein Menüeintrag.
+    /// `NoDisplay=true`: gültiger Handler, aber kein Menüeintrag.
     pub no_display: bool,
     pub actions: Vec<BrowserAction>,
 }
@@ -125,7 +129,7 @@ impl DiscoveryOptions {
     }
 }
 
-/// Die Verzeichnisse, in denen Desktop-Einträge liegen — höchste Präzedenz zuerst.
+/// Die Verzeichnisse, in denen Desktop-Einträge liegen, höchste Präzedenz zuerst.
 ///
 /// Die Flatpak- und Snap-Exportpfade werden ausdrücklich aufgeführt und nicht `XDG_DATA_DIRS`
 /// überlassen: In der Sandbox enthält diese Variable die Pfade der Runtime, nicht die des
@@ -159,7 +163,6 @@ pub fn default_search_paths() -> Vec<SearchPath> {
     push("/usr/share/applications".into(), SourceKind::System);
     push("/var/lib/flatpak/exports/share/applications".into(), SourceKind::Flatpak);
     push("/var/lib/snapd/desktop/applications".into(), SourceKind::Snap);
-    drop(push);
 
     // Doppelte Verzeichnisse würden Einträge doppelt einlesen. Das erste Vorkommen zählt,
     // weil es die höhere Präzedenz hat.
@@ -185,7 +188,7 @@ pub fn discover(options: &DiscoveryOptions) -> Vec<Browser> {
     }
 
     let mut browsers = deduplicate(by_desktop_id.into_values().collect(), options);
-    browsers.sort_by(|a, b| a.name.to_lowercase().cmp(&b.name.to_lowercase()));
+    browsers.sort_by_key(|browser| browser.name.to_lowercase());
     browsers
 }
 
@@ -214,11 +217,7 @@ fn read_dir(dir: &Path) -> Vec<DesktopFile> {
 }
 
 /// Prüft, ob ein Eintrag als Browser in Frage kommt, und baut ihn.
-fn candidate(
-    file: &DesktopFile,
-    kind: SourceKind,
-    options: &DiscoveryOptions,
-) -> Option<Browser> {
+fn candidate(file: &DesktopFile, kind: SourceKind, options: &DiscoveryOptions) -> Option<Browser> {
     // Invariante 1: niemals wir selbst.
     if file.id == options.self_desktop_id {
         debug!("eigener Eintrag {} ausgefiltert", file.id);
@@ -229,7 +228,7 @@ fn candidate(
     if entry.string("Type").as_deref() != Some("Application") {
         return None;
     }
-    // `Hidden=true` heisst nach Spec „gelöscht" — im Gegensatz zu `NoDisplay`.
+    // `Hidden=true` heisst nach Spec „gelöscht", im Gegensatz zu `NoDisplay`.
     if entry.bool("Hidden") == Some(true) {
         return None;
     }
@@ -290,9 +289,7 @@ fn handles_web_links(entry: &Group) -> bool {
 
 fn visible_in_current_desktop(entry: &Group, current: &[String]) -> bool {
     let matches = |list: Vec<String>| {
-        list.iter().any(|wanted| {
-            current.iter().any(|have| have.eq_ignore_ascii_case(wanted))
-        })
+        list.iter().any(|wanted| current.iter().any(|have| have.eq_ignore_ascii_case(wanted)))
     };
 
     let only_show_in = entry.list("OnlyShowIn");
@@ -312,9 +309,8 @@ fn determine_origin(kind: SourceKind, entry: &Group) -> Origin {
     if let Some(app_id) = entry.string("X-Flatpak") {
         return Origin::Flatpak { app_id: Some(app_id) };
     }
-    if let Some(instance) = entry
-        .string("X-SnapInstanceName")
-        .or_else(|| entry.string("X-Snap-Instance-Name"))
+    if let Some(instance) =
+        entry.string("X-SnapInstanceName").or_else(|| entry.string("X-Snap-Instance-Name"))
     {
         return Origin::Snap { instance: Some(instance) };
     }
@@ -336,16 +332,15 @@ fn determine_origin(kind: SourceKind, entry: &Group) -> Origin {
 /// Der Schlüssel ist die von Feldcodes befreite, normalisierte `Exec`-Zeile. Über die
 /// Desktop-ID allein liesse sich das Brave-Paar `brave-origin.desktop` /
 /// `com.brave.Origin.desktop` nicht zusammenführen.
-fn deduplicate(
-    candidates: Vec<(usize, Browser)>,
-    options: &DiscoveryOptions,
-) -> Vec<Browser> {
+fn deduplicate(candidates: Vec<(usize, Browser)>, options: &DiscoveryOptions) -> Vec<Browser> {
     let mut groups: BTreeMap<Vec<String>, (usize, Browser)> = BTreeMap::new();
 
     for (rank, browser) in candidates {
         let key = dedup_key(&browser.exec, &options.program_dirs);
         match groups.get(&key) {
-            Some((existing_rank, existing)) if !prefer(&browser, rank, existing, *existing_rank) => {
+            Some((existing_rank, existing))
+                if !prefer(&browser, rank, existing, *existing_rank) =>
+            {
                 debug!("{} als Duplikat von {} verworfen", browser.id, existing.id);
             }
             _ => {
@@ -359,7 +354,7 @@ fn deduplicate(
 
 /// Entscheidet, welcher von zwei Einträgen desselben Programms angezeigt wird.
 fn prefer(new: &Browser, new_rank: usize, old: &Browser, old_rank: usize) -> bool {
-    // Ein sichtbarer Eintrag schlägt einen mit NoDisplay — sonst zeigte die Liste den
+    // Ein sichtbarer Eintrag schlägt einen mit NoDisplay. Sonst zeigte die Liste den
     // Namen, den der Nutzer nirgends sonst sieht.
     match (new.no_display, old.no_display) {
         (false, true) => return true,
@@ -439,9 +434,7 @@ fn classify_dir(dir: &Path) -> SourceKind {
         SourceKind::Snap
     } else if dir.starts_with("/usr") || dir.starts_with("/opt") || dir.starts_with("/var") {
         SourceKind::System
-    } else if std::env::var_os("HOME")
-        .is_some_and(|home| dir.starts_with(PathBuf::from(home)))
-    {
+    } else if std::env::var_os("HOME").is_some_and(|home| dir.starts_with(PathBuf::from(home))) {
         SourceKind::User
     } else {
         SourceKind::System
@@ -458,9 +451,10 @@ fn resolve_program(program: &str, program_dirs: &[PathBuf]) -> Option<PathBuf> {
             .exists()
             .then(|| candidate.canonicalize().unwrap_or_else(|_| candidate.to_path_buf()));
     }
-    program_dirs.iter().map(|dir| dir.join(program)).find_map(|path| {
-        path.exists().then(|| path.canonicalize().unwrap_or(path))
-    })
+    program_dirs
+        .iter()
+        .map(|dir| dir.join(program))
+        .find_map(|path| path.exists().then(|| path.canonicalize().unwrap_or(path)))
 }
 
 #[cfg(test)]
@@ -482,10 +476,7 @@ mod tests {
             classify_dir(Path::new("/var/lib/snapd/desktop/applications")),
             SourceKind::Snap
         );
-        assert_eq!(
-            classify_dir(Path::new("/usr/share/applications")),
-            SourceKind::System
-        );
+        assert_eq!(classify_dir(Path::new("/usr/share/applications")), SourceKind::System);
     }
 
     #[test]
@@ -525,7 +516,8 @@ mod tests {
 
     #[test]
     fn dedup_key_ignores_branch_and_arch_for_flatpak() {
-        let stable = "/usr/bin/flatpak run --branch=stable --arch=x86_64 org.mozilla.firefox @@u %u @@";
+        let stable =
+            "/usr/bin/flatpak run --branch=stable --arch=x86_64 org.mozilla.firefox @@u %u @@";
         let beta = "/usr/bin/flatpak run --arch=aarch64 org.mozilla.firefox %u";
 
         assert_eq!(dedup_key(stable, &[]), dedup_key(beta, &[]));

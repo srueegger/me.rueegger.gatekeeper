@@ -1,6 +1,6 @@
 //! Parser-Tests gegen die Fixtures in `tests/fixtures/`.
 //!
-//! Bewusst gegen echte Dateien statt gegen erfundene Minimalbeispiele — die interessanten
+//! Bewusst gegen echte Dateien statt gegen erfundene Minimalbeispiele. Die interessanten
 //! Fehler stecken in dem, was Distributionen tatsächlich ausliefern.
 
 use std::path::{Path, PathBuf};
@@ -39,7 +39,7 @@ fn parses_semicolon_lists_without_trailing_empty_item() {
 
     assert!(mime.contains(&"x-scheme-handler/http".to_string()));
     assert!(mime.contains(&"x-scheme-handler/https".to_string()));
-    // Die Zeile endet auf ';' — das darf kein leeres Element erzeugen.
+    // Die Zeile endet auf ';', das darf kein leeres Element erzeugen.
     assert!(!mime.iter().any(String::is_empty), "leeres Element in {mime:?}");
 }
 
@@ -73,11 +73,8 @@ fn falls_back_to_unlocalized_value() {
     let firefox = parse("native/firefox.desktop");
     let de = Locale::parse("de").unwrap();
 
-    // firefox.desktop hat kein Name[de] in [Desktop Entry] — nur in den Actions.
-    assert_eq!(
-        firefox.entry.localized("Name", Some(&de)).as_deref(),
-        Some("Firefox Web Browser")
-    );
+    // firefox.desktop hat kein Name[de] in [Desktop Entry], nur in den Actions.
+    assert_eq!(firefox.entry.localized("Name", Some(&de)).as_deref(), Some("Firefox Web Browser"));
 }
 
 #[test]
@@ -91,10 +88,7 @@ fn localized_keys_do_not_leak_across_groups() {
     assert_eq!(entry_name.as_deref(), Some("Firefox Web Browser"));
 
     let action = &firefox.actions["new-window"];
-    assert_eq!(
-        action.localized("Name", Some(&de)).as_deref(),
-        Some("Ein neues Fenster öffnen")
-    );
+    assert_eq!(action.localized("Name", Some(&de)).as_deref(), Some("Ein neues Fenster öffnen"));
 }
 
 #[test]
@@ -129,7 +123,7 @@ fn action_exec_lines_are_kept_verbatim() {
     let brave = parse("native/brave-origin.desktop");
     let private = &brave.actions["new-private-window"];
 
-    // Kein Feldcode in dieser Zeile — die URL muss später angehängt werden.
+    // Kein Feldcode in dieser Zeile, die URL muss später angehängt werden.
     assert_eq!(private.raw("Exec"), Some("/usr/bin/brave-origin-stable --incognito"));
     assert_eq!(private.string("Name").as_deref(), Some("New Incognito Window"));
 }
@@ -262,7 +256,7 @@ fn unescapes_string_values_but_not_exec() {
         DesktopFile::parse_str(text, "x.desktop".into(), PathBuf::from("x.desktop")).unwrap();
 
     assert_eq!(file.entry.string("Name").as_deref(), Some("Tab\there\nand a backslash \\"));
-    // Exec behält die Rohform — dort gilt eigenes Quoting.
+    // Exec behält die Rohform, dort gilt eigenes Quoting.
     assert_eq!(file.entry.raw("Exec"), Some("/bin/x --path=C:\\\\temp %u"));
 }
 

@@ -38,7 +38,7 @@ fn names(browsers: &[Browser]) -> Vec<&str> {
 }
 
 // --------------------------------------------------------------------------------------
-// Invariante 1 — niemals wir selbst
+// Invariante 1: niemals wir selbst
 // --------------------------------------------------------------------------------------
 
 #[test]
@@ -89,10 +89,7 @@ fn reads_origin_details_from_packaging_keys() {
     let found = discover(&options(all_sources()));
 
     let flatpak = found.iter().find(|b| b.id == "org.mozilla.firefox.desktop").unwrap();
-    assert_eq!(
-        flatpak.origin,
-        Origin::Flatpak { app_id: Some("org.mozilla.firefox".into()) }
-    );
+    assert_eq!(flatpak.origin, Origin::Flatpak { app_id: Some("org.mozilla.firefox".into()) });
 
     let snap = found.iter().find(|b| b.id == "firefox_firefox.desktop").unwrap();
     assert_eq!(snap.origin, Origin::Snap { instance: Some("firefox".into()) });
@@ -141,12 +138,10 @@ fn precedence_order_decides_which_duplicate_wins() {
 
 #[test]
 fn different_browsers_are_not_merged() {
-    let found = discover(&options(vec![SearchPath::new(
-        fixtures().join("native"),
-        SourceKind::System,
-    )]));
+    let found =
+        discover(&options(vec![SearchPath::new(fixtures().join("native"), SourceKind::System)]));
 
-    // firefox, chromium, brave — Brave-Paar zu einem zusammengefasst.
+    // firefox, chromium, brave, wobei das Brave-Paar zu einem zusammengefasst wird.
     assert_eq!(found.len(), 3, "unerwartete Liste: {:?}", names(&found));
 }
 
@@ -175,10 +170,8 @@ fn same_browser_from_different_packaging_stays_separate() {
 
 #[test]
 fn excludes_entries_that_are_not_launchable_browsers() {
-    let found = discover(&options(vec![SearchPath::new(
-        fixtures().join("excluded"),
-        SourceKind::System,
-    )]));
+    let found =
+        discover(&options(vec![SearchPath::new(fixtures().join("excluded"), SourceKind::System)]));
 
     assert!(found.is_empty(), "nichts davon ist ein Kandidat: {:?}", names(&found));
 }
@@ -203,10 +196,7 @@ fn honours_onlyshowin() {
 
 #[test]
 fn skips_tryexec_that_does_not_resolve() {
-    let mut opts = options(vec![SearchPath::new(
-        fixtures().join("excluded"),
-        SourceKind::System,
-    )]);
+    let mut opts = options(vec![SearchPath::new(fixtures().join("excluded"), SourceKind::System)]);
     opts.program_dirs = vec![PathBuf::from("/usr/bin"), PathBuf::from("/bin")];
 
     assert!(!discover(&opts).iter().any(|b| b.id == "tryexec-missing.desktop"));
@@ -227,12 +217,10 @@ fn a_broken_file_does_not_abort_the_scan() {
 
 #[test]
 fn a_recoverable_file_is_kept_rather_than_discarded() {
-    // Doppelte Schlüssel machen einen Eintrag nicht unbrauchbar — der erste Wert gilt.
+    // Doppelte Schlüssel machen einen Eintrag nicht unbrauchbar, der erste Wert gilt.
     // Wegwerfen wäre hier der schlechtere Umgang als reparieren.
-    let found = discover(&options(vec![SearchPath::new(
-        fixtures().join("malformed"),
-        SourceKind::System,
-    )]));
+    let found =
+        discover(&options(vec![SearchPath::new(fixtures().join("malformed"), SourceKind::System)]));
 
     assert_eq!(names(&found), ["First Name"]);
     assert_eq!(found[0].exec, "/usr/bin/dupe %u");

@@ -4,7 +4,7 @@ Append-only. Alte Einträge werden nicht umgeschrieben, sondern als „supersede
 
 ---
 
-## ADR-1 — Zielbrowser werden direkt gestartet, nie über `xdg-open` oder ein Portal
+## ADR-1: Zielbrowser werden direkt gestartet, nie über `xdg-open` oder ein Portal
 
 **Status**: akzeptiert (2026-08-23)
 
@@ -23,7 +23,7 @@ gibt es keine Endlosschleife, und das Verhalten ist unit-testbar.
 
 ---
 
-## ADR-2 — `flatpak-spawn --host` als Startmechanismus, `--talk-name=org.freedesktop.Flatpak` als Preis
+## ADR-2: `flatpak-spawn --host` als Startmechanismus, `--talk-name=org.freedesktop.Flatpak` als Preis
 
 **Status**: akzeptiert (2026-08-23)
 
@@ -33,14 +33,15 @@ Flatpak-Sandbox geht das nur über das Host-Command-Portal.
 **Entscheidung**: Start über `flatpak-spawn --host -- <argv>`. Das Manifest deklariert
 `--talk-name=org.freedesktop.Flatpak`.
 
-**Konsequenz**: Die Sandbox ist faktisch offen — die Berechtigung erlaubt beliebige Host-Befehle.
+**Konsequenz**: Die Sandbox ist faktisch offen, denn die Berechtigung erlaubt beliebige
+Host-Befehle.
 Das muss bei einer Flathub-Einreichung begründet werden; Präzedenzfall ist Junction
 (`re.sonny.Junction`). Die Dateisystem-Berechtigungen bleiben trotzdem granular, damit der
 tatsächliche Bedarf sichtbar bleibt und die App ohne Portal-Zugriff wenigstens noch anzeigen kann.
 
 ---
 
-## ADR-3 — Deduplizierung über die normalisierte `Exec`-Zeile, nicht über die Desktop-ID
+## ADR-3: Deduplizierung über die normalisierte `Exec`-Zeile, nicht über die Desktop-ID
 
 **Status**: akzeptiert (2026-08-23)
 
@@ -50,29 +51,29 @@ tatsächliche Bedarf sichtbar bleibt und die App ohne Portal-Zugriff wenigstens 
 `/usr/bin/brave-origin-stable`, letztere mit `NoDisplay=true`. Dedup über die Desktop-ID würde
 denselben Browser zweimal anbieten.
 
-**Entscheidung**: Primärschlüssel für die Dedup ist die normalisierte `Exec`-Zeile — Feldcodes
+**Entscheidung**: Primärschlüssel für die Dedup ist die normalisierte `Exec`-Zeile: Feldcodes
 entfernt, Programmname über `PATH` und Symlinks aufgelöst, bei Flatpak zusätzlich die App-ID
 extrahiert. Innerhalb einer Gruppe gewinnt `NoDisplay=false`, dann das höherpriore Verzeichnis,
 dann die Reverse-DNS-ID.
 
-**Konsequenz**: `NoDisplay=true` verwirft einen Eintrag nicht hart — er ist nach Spec ein gültiger
+**Konsequenz**: `NoDisplay=true` verwirft einen Eintrag nicht hart. Er ist nach Spec ein gültiger
 Handler, nur kein Menüeintrag.
 
 ---
 
-## ADR-4 — Rust-Kern, C++/QML-Schale, CMake als Dach
+## ADR-4: Rust-Kern, C++/QML-Schale, CMake als Dach
 
 **Status**: akzeptiert (2026-08-23)
 
 **Kontext**: Qt 6 ist gesetzt, Rust bevorzugt. Für Rust-Qt-Bindings kommt praktisch nur cxx-qt
 (0.9.1, KDAB) in Frage. Flatpak-Builds sind offline, Cargo-Abhängigkeiten müssen vendored werden.
 Ein reiner cxx-qt-Aufbau legt Rust, Qt-Buildtooling, offline-Vendoring und QML-Modulregistrierung
-gleichzeitig auf den kritischen Pfad — für eine UI-Schicht von rund 300 Zeilen.
+gleichzeitig auf den kritischen Pfad, und das für eine UI-Schicht von rund 300 Zeilen.
 
 **Entscheidung**: Die gesamte Logik (Discovery, Parsing, Dedup, Feldcodes, Regeln, Launcher) liegt
 in `gatekeeper-core` in Rust. Die Qt-Schicht ist C++ mit QML (Qt Quick Controls 2). Gebrückt wird
 mit `cxx` über eine kleine, stabile Fläche; eingebunden über Corrosion in CMake. `main()` liegt in
-C++ und ruft zuerst `resolve(url)` im Rust-Kern auf — greift eine Regel, wird `QGuiApplication` nie
+C++ und ruft zuerst `resolve(url)` im Rust-Kern auf. Greift eine Regel, wird `QGuiApplication` nie
 konstruiert.
 
 **Konsequenz**: Zwei Build-Systeme und eine FFI-Grenze. Dafür bleibt der Umgang mit Fremdeingaben
@@ -82,7 +83,7 @@ abgesichert; scheitert der, wird diese Entscheidung neu getroffen.
 
 ---
 
-## ADR-5 — App-ID `me.rueegger.Gatekeeper`
+## ADR-5: App-ID `me.rueegger.Gatekeeper`
 
 **Status**: akzeptiert (2026-08-23)
 
@@ -93,13 +94,13 @@ Vorschlag lautete `me.rueegger.gatekeeper`, in Frage kam ausserdem `dev.rueegger
 **Entscheidung**: `me.rueegger.Gatekeeper`. Domain `rueegger.me`, letztes Segment gross.
 
 **Konsequenz**: Desktop-ID ist `me.rueegger.Gatekeeper.desktop`, der Sandbox-Zustand liegt unter
-`~/.var/app/me.rueegger.Gatekeeper/`. Die ID ist ab jetzt festgeschrieben — sie hängt in
+`~/.var/app/me.rueegger.Gatekeeper/`. Die ID ist ab jetzt festgeschrieben, denn sie hängt in
 `.desktop`, AppStream-Metainfo, Sandbox-Pfaden, dem Selbstfilter der Discovery (Invariante 1) und
 der Default-Browser-Registrierung. Ein späterer Wechsel wäre teuer.
 
 ---
 
-## ADR-6 — Verteilung zunächst über das eigene Flatpak-Repo
+## ADR-6: Verteilung zunächst über das eigene Flatpak-Repo
 
 **Status**: akzeptiert (2026-08-23)
 

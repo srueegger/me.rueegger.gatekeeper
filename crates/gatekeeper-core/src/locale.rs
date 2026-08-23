@@ -50,7 +50,7 @@ impl Locale {
             .find_map(|value| Self::parse(&value))
     }
 
-    /// Die Suffixe, unter denen ein Wert gesucht wird — in absteigender Genauigkeit.
+    /// Die Suffixe, unter denen ein Wert gesucht wird, in absteigender Genauigkeit.
     ///
     /// Nach Spec: `lang_COUNTRY@MODIFIER`, `lang_COUNTRY`, `lang@MODIFIER`, `lang`.
     /// Der unlokalisierte Wert ist nicht Teil der Liste; er ist der Fallback danach.

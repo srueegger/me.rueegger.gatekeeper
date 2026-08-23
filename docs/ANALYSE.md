@@ -1,4 +1,4 @@
-# Gatekeeper — Technische Analyse
+# Gatekeeper: Technische Analyse
 
 Stand: 2026-08-23. Analysebasis: TUXEDO OS (Debian), KDE Plasma, Wayland, Flatpak 1.18.1.
 
@@ -11,12 +11,12 @@ Gatekeeper registriert sich beim Desktop als Handler für `x-scheme-handler/http
 `gatekeeper <url>` auf statt eines fest gewählten Browsers. Gatekeeper zeigt eine Liste aller
 installierten Browser und startet den gewählten mit der URL.
 
-Klingt klein. Ist es nicht — der Aufwand steckt in drei Stellen:
+Klingt klein. Ist es nicht, denn der Aufwand steckt in drei Stellen:
 
 | Problem | Warum es schwierig ist |
 |---|---|
 | **Browser finden** | Nativ, Flatpak und Snap legen `.desktop`-Dateien an verschiedenen Orten ab, mit unterschiedlichen `Exec`-Konventionen. Duplikate sind Normalfall, nicht Ausnahme. |
-| **Browser starten — aus einer Sandbox heraus** | Wir laufen als Flatpak. Der Zielbrowser läuft auf dem Host. Alle bequemen Wege (`xdg-open`, Portal, `QDesktopServices`) führen zurück zum Default-Handler, also zu uns. |
+| **Browser starten, aus einer Sandbox heraus** | Wir laufen als Flatpak. Der Zielbrowser läuft auf dem Host. Alle bequemen Wege (`xdg-open`, Portal, `QDesktopServices`) führen zurück zum Default-Handler, also zu uns. |
 | **Nicht sich selbst aufrufen** | Ein Fehler hier erzeugt eine Fork-Bombe aus Dialogen und legt die Sitzung lahm. |
 
 ---
@@ -33,8 +33,8 @@ Nach XDG Base Directory Spec plus die Paketformat-spezifischen Exports:
 | System (lokal) | `/usr/local/share/applications` | 12 Einträge |
 | Nutzer | `$XDG_DATA_HOME/applications` | 15 Einträge |
 | Flatpak (system) | `/var/lib/flatpak/exports/share/applications` | 8 Einträge |
-| Flatpak (user) | `$XDG_DATA_HOME/flatpak/exports/share/applications` | — |
-| Snap | `/var/lib/snapd/desktop/applications` | — |
+| Flatpak (user) | `$XDG_DATA_HOME/flatpak/exports/share/applications` | keine |
+| Snap | `/var/lib/snapd/desktop/applications` | keine |
 
 `$XDG_DATA_DIRS` deckt Nix, Home-Manager und Guix implizit mit ab und wird zusätzlich ausgewertet.
 Präzedenz nach Spec: gleicher Dateiname in einem höherprioren Verzeichnis überschreibt den
@@ -47,7 +47,7 @@ Ein Eintrag ist ein Browser-Kandidat, wenn:
 - `Type=Application`
 - `MimeType` enthält `x-scheme-handler/http` oder `x-scheme-handler/https`
 - `Hidden=true` fehlt (Spec: bedeutet „gelöscht", Eintrag muss ignoriert werden)
-- `TryExec` — falls gesetzt — im `PATH` auflösbar ist
+- `TryExec`, falls gesetzt, im `PATH` auflösbar ist
 - `OnlyShowIn`/`NotShowIn` die aktuelle Desktop-Umgebung nicht ausschliessen
 - **die Desktop-ID nicht unsere eigene ist** (Invariante 1)
 
@@ -55,7 +55,7 @@ Ein Eintrag ist ein Browser-Kandidat, wenn:
 Handler". Solche Einträge werden deshalb nicht hart verworfen, sondern gehen in die Deduplizierung
 mit niedrigerer Priorität ein.
 
-### 2.3 Deduplizierung — belegt am realen System
+### 2.3 Deduplizierung, belegt am realen System
 
 Auf diesem Rechner liegen zwei Dateien:
 
@@ -69,7 +69,7 @@ Auf diesem Rechner liegen zwei Dateien:
 Verschiedene Desktop-IDs, identisches Programm. Dedup rein über die Desktop-ID greift hier nicht.
 Deshalb zweistufig:
 
-1. **Primärschlüssel**: normalisierte `Exec`-Zeile — Feldcodes (`%u %U %f %F …`) entfernt,
+1. **Primärschlüssel**: normalisierte `Exec`-Zeile. Feldcodes (`%u %U %f %F …`) entfernt,
    Argumente getrimmt, Programmname über `PATH`/Symlinks zum realen Ziel aufgelöst.
    Bei Flatpak-Exec-Zeilen zusätzlich die App-ID extrahiert, weil `--branch`/`--arch`-Argumente
    je nach Installation abweichen.
@@ -89,12 +89,12 @@ Für das Badge in der UI („Flatpak", „Snap", „System") und weil der Start 
 ### 2.5 Desktop Actions als Bonus
 
 Firefox, Chromium und Brave definieren alle `[Desktop Action new-private-window]`. Das kostet fast
-nichts mitzuparsen und ergibt eine sehr nützliche Sekundäraktion („Im privaten Fenster öffnen") —
+nichts mitzuparsen und ergibt eine sehr nützliche Sekundäraktion („Im privaten Fenster öffnen"),
 inklusive einer eigenen `Exec`-Zeile, an die die URL angehängt wird.
 
 ---
 
-## 3. Starten — der kritische Teil
+## 3. Starten, der kritische Teil
 
 ### 3.1 Was **nicht** geht
 
@@ -118,7 +118,7 @@ flatpak-spawn --host --env=XDG_ACTIVATION_TOKEN=<token> -- <argv...>
 
 Das setzt `--talk-name=org.freedesktop.Flatpak` im Manifest voraus. Diese Berechtigung ist faktisch
 ein Sandbox-Ausbruch und muss bei einer Flathub-Einreichung begründet werden. Es gibt dafür keinen
-Ersatz — der Zweck der App ist, Programme auf dem Host zu starten. Präzedenzfall: *Junction*
+Ersatz, denn der Zweck der App ist, Programme auf dem Host zu starten. Präzedenzfall: *Junction*
 (`re.sonny.Junction`) macht exakt dasselbe und ist auf Flathub akzeptiert.
 
 ### 3.3 `Exec`-Feldcodes korrekt auflösen
@@ -126,7 +126,7 @@ Ersatz — der Zweck der App ist, Programme auf dem Host zu starten. Präzedenzf
 Die `Exec`-Zeile wird nach Desktop Entry Spec §"The Exec key" geparst, nicht per String-Ersetzung:
 
 - Zuerst in Argumente zerlegen (Quoting mit `"`, Escaping mit `\`), **dann** Feldcodes ersetzen.
-  Ein Feldcode muss ein vollständiges Argument sein — `--url=%u` ist nach Spec ungültig.
+  Ein Feldcode muss ein vollständiges Argument sein, `--url=%u` ist nach Spec ungültig.
 - `%u` → genau eine URL, `%U` → alle URLs, `%f`/`%F` → lokale Pfade (für `file:`-URLs).
 - `%i` → `--icon <Icon>`, `%c` → `Name`, `%k` → Pfad der Desktop-Datei.
 - `%%` → literales `%`. Veraltete Codes `%d %D %n %N %v %m` werden ersatzlos entfernt.
@@ -137,7 +137,7 @@ Die `Exec`-Zeile wird nach Desktop Entry Spec §"The Exec key" geparst, nicht pe
 Die URL ist Fremdeingabe und kann alles enthalten. Deshalb:
 
 - **Niemals eine Shell.** Kein `sh -c`, kein `system()`, keine String-Interpolation. Immer ein
-  `argv`-Array. `flatpak-spawn --host -- prog arg1 arg2` nimmt argv entgegen — passt.
+  `argv`-Array. `flatpak-spawn --host -- prog arg1 arg2` nimmt argv entgegen, passt also.
 - Kein Argument darf sich in einen Schalter verwandeln: URLs, die mit `-` beginnen, werden
   abgelehnt oder mit `--`-Separator abgetrennt (Chromium-Flags wie `--gpu-launcher` sind
   Codeausführung).
@@ -221,10 +221,10 @@ direkt geladen werden.
 
 - Qt 6 ist gesetzt (Vorgabe).
 - Rust ist bevorzugt, aber nicht zwingend.
-- Flatpak-Builds sind **offline** — Cargo-Abhängigkeiten müssen vorab vendored werden
+- Flatpak-Builds sind **offline**, Cargo-Abhängigkeiten müssen vorab vendored werden
   (`flatpak-cargo-generator.py` → `generated-sources.json`).
 - Verfügbar geprüft: `org.kde.Sdk//6.10` und `//6.11`, `org.freedesktop.Sdk.Extension.rust-stable//25.08`
-  (Rust 1.98.0). `cxx-qt` steht bei 0.9.1 und verlangt Rust ≥ 1.85 — passt.
+  (Rust 1.98.0). `cxx-qt` steht bei 0.9.1 und verlangt Rust ≥ 1.85, passt also.
 
 ### 6.2 Optionen
 
@@ -239,7 +239,7 @@ direkt geladen werden.
 
 ### 6.3 Empfehlung: Option B
 
-Die Kernlogik — Desktop-Parsing, Dedup, `Exec`-Feldcodes, Regel-Matching, Prozessstart — bleibt
+Die Kernlogik, also Desktop-Parsing, Dedup, `Exec`-Feldcodes, Regel-Matching und Prozessstart, bleibt
 vollständig in Rust. Genau dort liegt der Umgang mit Fremdeingaben und genau dort ist Rust die
 Ansage wert. Die Qt-Schicht ist demgegenüber winzig: ein Dialog, eine Liste, ein Tastaturhandler.
 
@@ -271,21 +271,21 @@ Klickpfad nicht auffällt.
 
 ## 7. Funktionsumfang
 
-**MVP** — URL entgegennehmen, Browser aus allen Quellen auflisten, Auswahl per Maus oder Zifferntaste,
+**MVP**: URL entgegennehmen, Browser aus allen Quellen auflisten, Auswahl per Maus oder Zifferntaste,
 Zielbrowser starten, Escape bricht ab.
 
-**v1** — Regeln („für `github.com` immer Firefox"), Merken-Checkbox im Dialog, private Fenster über
+**v1**: Regeln („für `github.com` immer Firefox"), Merken-Checkbox im Dialog, private Fenster über
 Desktop Actions, URL kopieren, Reihenfolge nach letzter Nutzung, Selbstprüfung als Default-Browser.
 
-**v2** — Regel-Editor, Firefox-Profile (`-P`), Auflösen von Redirect-Wrappern, optionales Entfernen
+**v2**: Regel-Editor, Firefox-Profile (`-P`), Auflösen von Redirect-Wrappern, optionales Entfernen
 von Tracking-Parametern, Timeout mit Fallback-Browser.
 
 ### Konfiguration
 
 In `$XDG_CONFIG_HOME/gatekeeper/` (in der Sandbox `~/.var/app/me.rueegger.Gatekeeper/config/`):
 
-- `config.toml` — Reihenfolge, Fallback, UI-Optionen
-- `rules.toml` — Muster (Domain, Wildcard, Regex) → Desktop-ID plus optionale Action
+- `config.toml`: Reihenfolge, Fallback, UI-Optionen
+- `rules.toml`: Muster (Domain, Wildcard, Regex) → Desktop-ID plus optionale Action
 
 Erste Übereinstimmung gewinnt. Wird beim Aufruf eine Modifiertaste gehalten, werden Regeln
 übersprungen und der Dialog erscheint trotzdem.
@@ -294,7 +294,7 @@ Erste Übereinstimmung gewinnt. Wird beim Aufruf eine Modifiertaste gehalten, we
 
 ## 8. Testen
 
-Der Parser wird gegen **echte** `.desktop`-Dateien getestet, die als Fixtures im Repo liegen —
+Der Parser wird gegen **echte** `.desktop`-Dateien getestet, die als Fixtures im Repo liegen:
 nativ (Firefox, Chromium, Brave), Flatpak-Export, Snap-Export, plus das oben belegte
 Brave-Duplikat und bewusst kaputte Dateien.
 
@@ -302,7 +302,7 @@ Testfälle mit Substanz:
 
 - Dedup: `brave-origin.desktop` + `com.brave.Origin.desktop` ergeben **einen** Eintrag
 - `Exec`-Feldcodes inklusive Quoting, `%%`, veralteter Codes und Flatpaks `@@u … @@`-Form
-- Eigene Desktop-ID wird aus jeder Quelle gefiltert (Invariante 1 — eigener Test pro Quelle)
+- Eigene Desktop-ID wird aus jeder Quelle gefiltert (Invariante 1, eigener Test pro Quelle)
 - Verzeichnispräzedenz: `~/.local/share/applications/firefox.desktop` verdrängt `/usr/share`
 - URLs mit führendem `-`, eingebetteten Anführungszeichen, Leerzeichen, Unicode
 - Kaputte Datei mitten im Verzeichnis bricht den Scan nicht ab
@@ -327,14 +327,14 @@ zu starten. Damit ist „nie über eine Shell" testbar und nicht nur Vorsatz.
 
 ## 10. Meilensteine
 
-- **M0 — Spike.** `flatpak-builder` bringt ein CMake+Corrosion+Qt6-Hello-World mit vendored Cargo
+- **M0, Spike.** `flatpak-builder` bringt ein CMake+Corrosion+Qt6-Hello-World mit vendored Cargo
   durch. Erst wenn das steht, wird weitergebaut. Scheitert es, fällt die Entscheidung aus §6 neu.
-- **M1 — Kern.** Discovery, Parser, Dedup, Feldcodes, Launcher-Trait. Headless CLI zum Prüfen,
+- **M1, Kern.** Discovery, Parser, Dedup, Feldcodes, Launcher-Trait. Headless CLI zum Prüfen,
   volle Testabdeckung. Keine GUI.
-- **M2 — GUI.** QML-Dialog, Tastaturbedienung, Icons.
-- **M3 — Flatpak.** Manifest, `.desktop`, AppStream-Metainfo, Registrierung als Default-Browser.
-- **M4 — Regeln.** Persistenz, Merken-Checkbox, Kurzschluss vor Qt-Init.
-- **M5 — Feinschliff.** Private Fenster, Selbstprüfung, Release.
+- **M2, GUI.** QML-Dialog, Tastaturbedienung, Icons.
+- **M3, Flatpak.** Manifest, `.desktop`, AppStream-Metainfo, Registrierung als Default-Browser.
+- **M4, Regeln.** Persistenz, Merken-Checkbox, Kurzschluss vor Qt-Init.
+- **M5, Feinschliff.** Private Fenster, Selbstprüfung, Release.
 
 ---
 
@@ -342,8 +342,8 @@ zu starten. Damit ist „nie über eine Shell" testbar und nicht nur Vorsatz.
 
 Die anfangs offenen Punkte sind entschieden (2026-08-23):
 
-1. **App-ID**: `me.rueegger.Gatekeeper` — Domain `rueegger.me` beibehalten, Grossschreibung des
+1. **App-ID**: `me.rueegger.Gatekeeper`. Domain `rueegger.me` beibehalten, Grossschreibung des
    letzten Segments nach Flathub-Konvention (ADR-5).
-2. **Stack**: Option B aus §6.3 — Rust-Kern, C++/QML-Schale (ADR-4, akzeptiert).
+2. **Stack**: Option B aus §6.3, also Rust-Kern mit C++/QML-Schale (ADR-4, akzeptiert).
 3. **Vertrieb**: zuerst über das eigene Repo (`rueegger-dev`-Remote). Flathub bleibt als späteres
    Ziel möglich, prägt aber nicht die frühe Iteration (ADR-6).

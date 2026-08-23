@@ -1,4 +1,4 @@
-//! Zeigt, was der Kern auf dem laufenden System findet — ohne GUI.
+//! Zeigt, was der Kern auf dem laufenden System findet, ohne GUI.
 //!
 //! ```text
 //! cargo run --example scan
@@ -41,7 +41,7 @@ fn main() {
     for browser in &browsers {
         println!("  {} [{}]", browser.name, browser.origin.label());
         println!("      id    {}", browser.id);
-        println!("      icon  {}", browser.icon.as_deref().unwrap_or("—"));
+        println!("      icon  {}", browser.icon.as_deref().unwrap_or("(keines)"));
         println!("      exec  {}", browser.exec);
 
         let context = FieldContext {
@@ -62,7 +62,7 @@ fn main() {
 
     if let Some(uri) = &target {
         println!("Ziel: {uri}");
-        println!("Domain für die Anzeige: {}", uri.display_host().unwrap_or("—"));
+        println!("Domain für die Anzeige: {}", uri.display_host().unwrap_or("(keine)"));
     } else {
         println!("Tipp: URL als Argument übergeben, um das aufgelöste argv zu sehen.");
     }

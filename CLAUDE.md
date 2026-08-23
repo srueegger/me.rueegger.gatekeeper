@@ -1,12 +1,12 @@
-# Gatekeeper — Projektinstruktionen für Claude
+# Gatekeeper: Projektinstruktionen für Claude
 
 ## Was ist das
 
 **Gatekeeper** (App-ID `me.rueegger.Gatekeeper`) ist eine Linux-Desktop-App, die sich als
 Standardbrowser registriert. Klickt der Nutzer irgendwo auf einen Link (E-Mail-Client, Chat,
 Terminal, PDF-Viewer), bekommt nicht ein fest verdrahteter Browser die URL, sondern Gatekeeper.
-Gatekeeper zeigt einen schnellen Auswahldialog mit allen installierten Browsern — nativ, Flatpak
-und Snap — und startet den gewählten mit der URL.
+Gatekeeper zeigt einen schnellen Auswahldialog mit allen installierten Browsern, ob nativ, Flatpak
+oder Snap, und startet den gewählten mit der URL.
 
 Vertrieb: **Flatpak**. UI: **Qt 6 / QML**. Logik: **Rust**.
 Begründung und Details in `docs/ANALYSE.md`, Entscheidungen in `docs/DECISIONS.md`.
@@ -19,7 +19,7 @@ Der Kern des Projekts. Änderungen daran nie ohne Rückfrage:
    Jede Discovery-Quelle filtert die eigene Desktop-ID heraus, mit eigenem Test je Quelle. Ein
    Fehler hier erzeugt eine Endlosschleife, die die Sitzung lahmlegt.
 2. **Kein `xdg-open`, kein Portal, kein `QDesktopServices`.** Alle drei schlagen den
-   Default-Handler nach — und der sind wir (ADR-1). Zielbrowser werden immer direkt über ihre
+   Default-Handler nach, und der sind wir (ADR-1). Zielbrowser werden immer direkt über ihre
    `Exec`-Zeile gestartet.
 3. **Nie über eine Shell starten.** URLs sind Fremdeingabe. Immer `argv`-Arrays, nie
    String-Interpolation in `sh -c`. URLs mit führendem `-` werden nie als Argument durchgereicht.
@@ -35,13 +35,13 @@ auflösen, Prozess starten. Headless testbar, keine Qt-Abhängigkeit.
 
 Darüber eine dünne Qt-6-Schicht in C++ mit QML, angebunden über `cxx`, gebaut mit CMake +
 Corrosion (ADR-4). `main()` liegt in C++ und ruft zuerst `resolve(url)` im Rust-Kern auf. Greift
-eine gespeicherte Regel, wird `QGuiApplication` nie konstruiert — der Browser startet ohne jede
+eine gespeicherte Regel, wird `QGuiApplication` nie konstruiert. Der Browser startet ohne jede
 GUI-Initialisierung.
 
 ## Verzeichnisse
 
 ```
-crates/gatekeeper-core/   Discovery, Parsing, Regeln, Launcher — keine GUI, voll unit-testbar
+crates/gatekeeper-core/   Discovery, Parsing, Regeln, Launcher. Keine GUI, voll unit-testbar
 crates/gatekeeper-ffi/    cxx-Bridge, schmale und stabile Fläche zum C++-Teil
 src/                      C++/QML-Frontend + main()
 data/                     .desktop, AppStream-Metainfo, Icons
@@ -62,7 +62,7 @@ tests/fixtures/           Echte .desktop-Dateien (nativ/Flatpak/Snap) als Testda
   PR-Beschreibungen. Keine Co-Authored-By-Trailer.
 - **CLAUDE.md pflegen.** Ändert sich eine Invariante, ein Verzeichnis oder eine Konvention, wird
   diese Datei im selben Commit mitgezogen.
-- **Architekturentscheidungen** kommen als ADR nach `docs/DECISIONS.md` — Kontext, Entscheidung,
+- **Architekturentscheidungen** kommen als ADR nach `docs/DECISIONS.md`: Kontext, Entscheidung,
   Konsequenz. Append-only; überholte Einträge werden als „superseded by ADR-N" markiert, nicht
   umgeschrieben.
 - Vor jedem Commit: `cargo fmt --all`, `cargo clippy --all-targets -- -D warnings`, `cargo test`.
@@ -72,7 +72,7 @@ tests/fixtures/           Echte .desktop-Dateien (nativ/Flatpak/Snap) als Testda
 
 Der Kern wird gegen echte `.desktop`-Fixtures getestet, nicht gegen erfundene. Neue Browser oder
 neue Paketformate kommen als Fixture nach `tests/fixtures/` plus Testfall. Beim Parser gilt: lieber
-eine kaputte Desktop-Datei überspringen und loggen als den ganzen Scan abbrechen — auf echten
+eine kaputte Desktop-Datei überspringen und loggen als den ganzen Scan abbrechen. Auf echten
 Systemen liegt immer irgendwo Müll.
 
 Der Launcher wird gegen einen Fake getestet, der das `argv`-Array aufzeichnet statt zu starten.
