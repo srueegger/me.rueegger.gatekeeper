@@ -164,7 +164,7 @@ Exec=gatekeeper %u
 ```
 
 Setzen aus der App heraus über
-`flatpak-spawn --host xdg-settings set default-web-browser me.rueegger.gatekeeper.desktop`,
+`flatpak-spawn --host xdg-settings set default-web-browser me.rueegger.Gatekeeper.desktop`,
 Verifikation über `xdg-settings check`. Fällt `xdg-settings` aus, wird `mimeapps.list` direkt
 geschrieben.
 
@@ -282,7 +282,7 @@ von Tracking-Parametern, Timeout mit Fallback-Browser.
 
 ### Konfiguration
 
-In `$XDG_CONFIG_HOME/gatekeeper/` (in der Sandbox `~/.var/app/me.rueegger.gatekeeper/config/`):
+In `$XDG_CONFIG_HOME/gatekeeper/` (in der Sandbox `~/.var/app/me.rueegger.Gatekeeper/config/`):
 
 - `config.toml` — Reihenfolge, Fallback, UI-Optionen
 - `rules.toml` — Muster (Domain, Wildcard, Regex) → Desktop-ID plus optionale Action
@@ -338,13 +338,12 @@ zu starten. Damit ist „nie über eine Shell" testbar und nicht nur Vorsatz.
 
 ---
 
-## 11. Offene Punkte
+## 11. Getroffene Entscheidungen
 
-1. **App-ID.** `me.rueegger.gatekeeper` setzt Kontrolle über `rueegger.me` voraus; die hinterlegte
-   Adresse deutet auf `rueegger.dev`. Flathub verlangt eine Domain, die dir gehört, und schreibt
-   für das letzte Segment üblicherweise Grossschreibung — also eher
-   `dev.rueegger.Gatekeeper`. Vor dem ersten Commit von `.desktop` und Metainfo klären, ein
-   späterer Wechsel ist teuer.
-2. **Stack** — Bestätigung für Option B (§6.3).
-3. **Flathub-Einreichung** von Anfang an anpeilen oder erst eigenes Repo (`rueegger-dev`-Remote
-   existiert bereits)? Beeinflusst, wie streng die Berechtigungen begründet werden müssen.
+Die anfangs offenen Punkte sind entschieden (2026-08-23):
+
+1. **App-ID**: `me.rueegger.Gatekeeper` — Domain `rueegger.me` beibehalten, Grossschreibung des
+   letzten Segments nach Flathub-Konvention (ADR-5).
+2. **Stack**: Option B aus §6.3 — Rust-Kern, C++/QML-Schale (ADR-4, akzeptiert).
+3. **Vertrieb**: zuerst über das eigene Repo (`rueegger-dev`-Remote). Flathub bleibt als späteres
+   Ziel möglich, prägt aber nicht die frühe Iteration (ADR-6).

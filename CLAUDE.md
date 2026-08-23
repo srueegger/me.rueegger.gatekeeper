@@ -2,7 +2,7 @@
 
 ## Was ist das
 
-**Gatekeeper** (App-ID `me.rueegger.gatekeeper`) ist eine Linux-Desktop-App, die sich als
+**Gatekeeper** (App-ID `me.rueegger.Gatekeeper`) ist eine Linux-Desktop-App, die sich als
 Standardbrowser registriert. Klickt der Nutzer irgendwo auf einen Link (E-Mail-Client, Chat,
 Terminal, PDF-Viewer), bekommt nicht ein fest verdrahteter Browser die URL, sondern Gatekeeper.
 Gatekeeper zeigt einen schnellen Auswahldialog mit allen installierten Browsern — nativ, Flatpak

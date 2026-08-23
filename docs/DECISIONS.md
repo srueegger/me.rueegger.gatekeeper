@@ -62,7 +62,7 @@ Handler, nur kein Menüeintrag.
 
 ## ADR-4 — Rust-Kern, C++/QML-Schale, CMake als Dach
 
-**Status**: vorgeschlagen (2026-08-23) — wartet auf Bestätigung
+**Status**: akzeptiert (2026-08-23)
 
 **Kontext**: Qt 6 ist gesetzt, Rust bevorzugt. Für Rust-Qt-Bindings kommt praktisch nur cxx-qt
 (0.9.1, KDAB) in Frage. Flatpak-Builds sind offline, Cargo-Abhängigkeiten müssen vendored werden.
@@ -79,3 +79,37 @@ konstruiert.
 vollständig in Rust, der Flatpak-Build folgt dem eingefahrenen KDE-Pfad, und das vorhandene
 Qt-Tooling (CMake, qmllint, qmltestrunner, Qt-Doku) ist nutzbar. Wird in M0 durch einen Spike
 abgesichert; scheitert der, wird diese Entscheidung neu getroffen.
+
+---
+
+## ADR-5 — App-ID `me.rueegger.Gatekeeper`
+
+**Status**: akzeptiert (2026-08-23)
+
+**Kontext**: Flatpak-App-IDs sind Reverse-DNS einer Domain, über die der Herausgeber verfügt.
+Flathub schreibt für das letzte Segment üblicherweise Grossschreibung vor. Der ursprüngliche
+Vorschlag lautete `me.rueegger.gatekeeper`, in Frage kam ausserdem `dev.rueegger.Gatekeeper`.
+
+**Entscheidung**: `me.rueegger.Gatekeeper`. Domain `rueegger.me`, letztes Segment gross.
+
+**Konsequenz**: Desktop-ID ist `me.rueegger.Gatekeeper.desktop`, der Sandbox-Zustand liegt unter
+`~/.var/app/me.rueegger.Gatekeeper/`. Die ID ist ab jetzt festgeschrieben — sie hängt in
+`.desktop`, AppStream-Metainfo, Sandbox-Pfaden, dem Selbstfilter der Discovery (Invariante 1) und
+der Default-Browser-Registrierung. Ein späterer Wechsel wäre teuer.
+
+---
+
+## ADR-6 — Verteilung zunächst über das eigene Flatpak-Repo
+
+**Status**: akzeptiert (2026-08-23)
+
+**Kontext**: Ein `rueegger-dev`-Flatpak-Remote existiert bereits. Flathub würde für
+`--talk-name=org.freedesktop.Flatpak` (ADR-2) eine Review-Begründung verlangen und die Iteration
+verlangsamen, solange die App noch nicht steht.
+
+**Entscheidung**: Ausgeliefert wird zunächst über das eigene Repo. Flathub bleibt als späteres Ziel
+offen, bestimmt aber nicht die frühen Entscheidungen.
+
+**Konsequenz**: Metainfo und Manifest werden trotzdem sauber gehalten, damit eine spätere
+Einreichung kein Umbau wird. Die Berechtigungen bleiben granular begründet (ADR-2), auch wenn
+niemand sie vorerst prüft.
