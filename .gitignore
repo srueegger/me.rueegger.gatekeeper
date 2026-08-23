@@ -1,0 +1,27 @@
+# Rust
+/target/
+**/*.rs.bk
+Cargo.lock.orig
+
+# Flatpak
+/.flatpak-builder/
+/build/
+/build-dir/
+/repo/
+*.flatpak
+*.flatpakref
+
+# Editor / OS
+.idea/
+.vscode/
+*.swp
+*~
+.DS_Store
+
+# Lokale Test-Artefakte
+/scratch/
+
+# CMake
+/cmake-build-*/
+CMakeUserPresets.json
+compile_commands.json
