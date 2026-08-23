@@ -255,7 +255,7 @@ fn split_locale(key_part: &str) -> Option<(&str, &str)> {
 /// Löst die Escape-Sequenzen für Werte vom Typ „string" auf.
 ///
 /// Nicht auf `Exec` anwenden — dort gelten die eigenen Quoting-Regeln aus [`crate::exec`].
-fn unescape(value: &str) -> String {
+pub(crate) fn unescape(value: &str) -> String {
     if !value.contains('\\') {
         return value.to_string();
     }

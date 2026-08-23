@@ -23,8 +23,9 @@ echter Export vorliegt, werden sie dadurch ersetzt.
 
 Was sie abdecken:
 
-- Flatpaks `--file-forwarding`-Form `@@u %u @@` — die `@@`-Marker sind keine Argumente und dürfen
-  nicht beim Browser landen.
+- Flatpaks `--file-forwarding`-Form `@@u %u @@`. Die `@@`-Marker sind Argumente für `flatpak run`,
+  nicht für den Browser: `flatpak run` wertet sie selbst aus und entfernt sie. Sie müssen deshalb
+  unverändert durchgereicht werden — nur das `%u` dazwischen wird ersetzt.
 - `Exec` beginnt mit `/usr/bin/flatpak run …`; die App-ID steht mitten in der Zeile, hinter
   variablen `--branch`/`--arch`/`--command`-Argumenten. Genau daran hängt die Dedup-Normalisierung.
 - Snaps `env BAMF_DESKTOP_FILE_HINT=… /snap/bin/…`-Präfix. Das Programm ist nicht das erste Token.

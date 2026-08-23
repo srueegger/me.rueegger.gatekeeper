@@ -12,7 +12,9 @@
 //!    Alle drei schlagen den Default-Handler nach — und der ist Gatekeeper selbst.
 
 pub mod desktop;
+pub mod exec;
 pub mod locale;
 
 pub use desktop::{DesktopFile, Group, ParseError};
+pub use exec::{ExecError, FieldContext, build_argv};
 pub use locale::Locale;
