@@ -24,6 +24,7 @@ pub mod exec;
 pub mod host;
 pub mod launcher;
 pub mod locale;
+pub mod rules;
 pub mod uri;
 
 pub use desktop::{DesktopFile, Group, ParseError};

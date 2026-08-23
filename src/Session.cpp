@@ -68,6 +68,18 @@ void Session::choose(int index)
         command.emplace_back(utf8.constData(), utf8.size());
     }
 
+    // Erst merken, dann starten. Andersherum ginge die Regel verloren, sobald der Start
+    // die Anwendung beendet.
+    if (m_rememberChoice && !m_targetHost.isEmpty()) {
+        const QByteArray host = m_targetHost.toUtf8();
+        const QByteArray id = browser.value(QStringLiteral("id")).toString().toUtf8();
+        const auto remembered =
+            gatekeeper::remember_rule(rust::Str(host.constData(), host.size()),
+                                      rust::Str(id.constData(), id.size()));
+        if (!remembered.started)
+            qWarning("Regel nicht gespeichert: %s", qUtf8Printable(toQString(remembered.error)));
+    }
+
     const auto outcome =
         gatekeeper::launch(rust::Slice<const rust::String>(command.data(), command.size()));
     if (!outcome.started) {

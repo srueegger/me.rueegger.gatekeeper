@@ -52,6 +52,11 @@ public:
     /// Trägt Gatekeeper als Standardbrowser ein und aktualisiert den Hinweis.
     Q_INVOKABLE void makeDefaultBrowser();
 
+    /// Ob die Auswahl als Regel für die aktuelle Domain gemerkt werden soll.
+    ///
+    /// Wird von der Oberfläche gesetzt und beim nächsten `choose` ausgewertet.
+    Q_INVOKABLE void setRememberChoice(bool remember) { m_rememberChoice = remember; }
+
     /// Der Index des Browsers mit dieser Desktop-ID, oder -1.
     int indexOfDesktopId(const QString &desktopId) const;
 
@@ -77,4 +82,5 @@ private:
     QString m_targetHost;
     QString m_launchError;
     QString m_defaultBrowserHint;
+    bool m_rememberChoice = false;
 };

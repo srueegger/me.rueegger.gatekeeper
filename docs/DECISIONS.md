@@ -189,3 +189,56 @@ ausdrücklich fest, dass in der Sandbox weder `/usr/share/applications` noch `/a
 der Runtime als Browser an und im schlimmsten Fall sich selbst.
 
 Bestätigt am laufenden Paket: Sandbox und Host finden dieselben drei Browser.
+
+---
+
+## ADR-10: Regeln als TOML, erste Übereinstimmung gewinnt, Muster ausdrücklich benannt
+
+**Status**: akzeptiert (2026-08-23)
+
+**Kontext**: Regeln ordnen eine URL ohne Rückfrage einem Browser zu. Zu klären war das
+Format, die Auflösung mehrdeutiger Fälle und wie ein Muster seine Art bekannt gibt. Ein
+naheliegender Entwurf wäre ein einzelnes Feld gewesen, dessen Schreibweise die Art verrät,
+etwa Schrägstriche für einen regulären Ausdruck.
+
+**Entscheidung**: TOML in `$XDG_CONFIG_HOME/gatekeeper/rules.toml`. Jede Regel benennt ihr
+Muster ausdrücklich über `host`, `url` oder `scheme` und den Zielbrowser über `browser`,
+dazu optional `action`. Die erste passende Regel gewinnt; Reihenfolge ist damit Bedeutung.
+Sind an einer Regel mehrere Muster gesetzt, müssen alle zutreffen.
+
+Ein einfacher Hostname trifft die Domain und ihre Subdomains, weil wer `github.com`
+schreibt, auch `www.github.com` meint. `*.example.com` trifft ausschliesslich Subdomains.
+Unbekannte Schlüssel sind ein Fehler, damit ein Tippfehler auffällt statt wirkungslos zu
+verpuffen.
+
+**Konsequenz**: Zwei zusätzliche Abhängigkeiten, `toml` und `regex`, und damit ein neu zu
+erzeugendes `generated-sources.json`. Dafür ist die Datei ohne Kenntnis interner Regeln
+lesbar, und eine Regel, die enger gemeint war, greift nicht versehentlich breiter.
+
+Drei Fälle enden bewusst beim Dialog statt in einem Fehler: eine Regel ohne jedes Muster
+trifft nichts, ein ungültiger regulärer Ausdruck trifft nichts, und eine kaputte Regeldatei
+ergibt keine Regeln. In allen dreien wäre die Alternative, dass gar kein Link mehr aufgeht.
+
+---
+
+## ADR-11: Regelprüfung vor jeder Qt-Initialisierung
+
+**Status**: akzeptiert (2026-08-23)
+
+**Kontext**: Ein Regeltreffer soll nicht nur den Dialog überspringen, sondern die Kosten der
+Oberfläche ganz vermeiden. Diese Prüfung liegt im Klickpfad jedes Links.
+
+**Entscheidung**: `main()` befragt vor jeder Berührung von Qt den Kern. Greift eine Regel,
+wird der Browser gestartet und der Prozess endet, ohne dass je eine `QGuiApplication`
+entstanden ist. Aus demselben Grund liest die Prüfung des Standardbrowsers Dateien selbst,
+statt ein Werkzeug aufzurufen.
+
+`--ask` überspringt die Regeln und erzwingt den Dialog.
+
+**Konsequenz**: Gemessen am laufenden Programm liegt ein Regeltreffer bei rund 60
+Millisekunden gegenüber dem vollständigen Aufbau der Oberfläche. Der Preis ist, dass die
+Reihenfolge in `main()` Bedeutung trägt: Wer die Regelprüfung hinter die Qt-Initialisierung
+schiebt, verliert genau diesen Gewinn, ohne dass ein Test es merkt.
+
+Scheitert der Start trotz Treffer, etwa weil der eingetragene Browser deinstalliert wurde,
+übernimmt der Dialog. Wortlos zu scheitern wäre die schlechtere Antwort auf einen Klick.

@@ -7,6 +7,7 @@ use gatekeeper_core::default_browser::{self, ConfigEnvironment, DefaultBrowser};
 use gatekeeper_core::discovery::{self, DiscoveryOptions};
 use gatekeeper_core::exec::{self, FieldContext};
 use gatekeeper_core::launcher::{LaunchRequest, default_launcher};
+use gatekeeper_core::rules::{RuleSet, rules_path};
 use gatekeeper_core::uri::TargetUri;
 
 #[cxx::bridge(namespace = "gatekeeper")]
@@ -22,6 +23,18 @@ mod ffi {
         origin: String,
         /// Fertiges Startkommando. Erstes Element ist das Programm.
         argv: Vec<String>,
+    }
+
+    /// Was die Regeln mit dieser URL gemacht haben.
+    struct RuleOutcome {
+        /// Eine Regel hat gegriffen.
+        matched: bool,
+        /// Der Browser wurde gestartet. Der Aufruf ist damit erledigt.
+        launched: bool,
+        /// Desktop-ID des Browsers, den die Regel benannt hat.
+        browser: String,
+        /// Warum es trotz Treffer nicht klappte.
+        error: String,
     }
 
     /// Wer aktuell Links öffnet.
@@ -54,6 +67,8 @@ mod ffi {
         fn check_target(raw: &str) -> Target;
         fn list_browsers(uri: &str) -> Vec<Browser>;
         fn launch(argv: &[String]) -> LaunchOutcome;
+        fn apply_rules(uri: &str) -> RuleOutcome;
+        fn remember_rule(host: &str, browser: &str) -> LaunchOutcome;
         fn default_browser_status() -> DefaultBrowserStatus;
         fn make_default_browser() -> LaunchOutcome;
     }
@@ -154,5 +169,120 @@ pub fn make_default_browser() -> ffi::LaunchOutcome {
     match default_browser::make_default(&env) {
         Ok(()) => ffi::LaunchOutcome { started: true, error: String::new() },
         Err(err) => ffi::LaunchOutcome { started: false, error: err.to_string() },
+    }
+}
+
+/// Prüft die gespeicherten Regeln und startet bei einem Treffer sofort.
+///
+/// Wird aufgerufen, bevor irgendetwas von Qt existiert. Greift eine Regel, bleibt es
+/// dabei: kein Fenster, keine Szenengrafik, keine Wartezeit.
+///
+/// Scheitert der Start trotz Treffer, etwa weil der eingetragene Browser nicht mehr
+/// installiert ist, wird das gemeldet und der Dialog übernimmt. Wortlos zu scheitern wäre
+/// die schlechtere Antwort.
+pub fn apply_rules(uri: &str) -> ffi::RuleOutcome {
+    let miss = || ffi::RuleOutcome {
+        matched: false,
+        launched: false,
+        browser: String::new(),
+        error: String::new(),
+    };
+
+    let Ok(target) = TargetUri::parse(uri) else {
+        return miss();
+    };
+    let Some(path) = rules_path() else {
+        return miss();
+    };
+
+    let rules = RuleSet::load(&path);
+    let Some(rule) = rules.first_match(&target) else {
+        return miss();
+    };
+
+    let options = DiscoveryOptions::from_env(gatekeeper_core::SELF_DESKTOP_ID);
+    let Some(browser) =
+        discovery::discover(&options).into_iter().find(|found| found.id == rule.browser)
+    else {
+        return ffi::RuleOutcome {
+            matched: true,
+            launched: false,
+            browser: rule.browser.clone(),
+            error: format!("{} ist nicht installiert", rule.browser),
+        };
+    };
+
+    // Nennt die Regel eine Aktion, gilt deren eigene Exec-Zeile.
+    let exec = match &rule.action {
+        Some(wanted) => match browser.actions.iter().find(|action| &action.id == wanted) {
+            Some(action) => action.exec.clone(),
+            None => {
+                return ffi::RuleOutcome {
+                    matched: true,
+                    launched: false,
+                    browser: rule.browser.clone(),
+                    error: format!("{} kennt keine Aktion '{wanted}'", rule.browser),
+                };
+            }
+        },
+        None => browser.exec.clone(),
+    };
+
+    let uris = vec![target.as_str().to_string()];
+    let context = FieldContext {
+        uris: &uris,
+        icon: browser.icon.as_deref(),
+        name: Some(&browser.name),
+        desktop_path: browser.path.to_str(),
+    };
+
+    let argv = match exec::build_argv(&exec, &context) {
+        Ok(argv) => argv,
+        Err(err) => {
+            return ffi::RuleOutcome {
+                matched: true,
+                launched: false,
+                browser: rule.browser.clone(),
+                error: err.to_string(),
+            };
+        }
+    };
+
+    match default_launcher().launch(&LaunchRequest::new(argv)) {
+        Ok(()) => ffi::RuleOutcome {
+            matched: true,
+            launched: true,
+            browser: rule.browser.clone(),
+            error: String::new(),
+        },
+        Err(err) => ffi::RuleOutcome {
+            matched: true,
+            launched: false,
+            browser: rule.browser.clone(),
+            error: err.to_string(),
+        },
+    }
+}
+
+/// Hängt eine Regel an, die diesen Host künftig diesem Browser zuordnet.
+///
+/// Angehängt, nicht eingefügt: Die erste passende Regel gewinnt, und was der Nutzer von
+/// Hand geschrieben hat, soll nicht von einem Klick überstimmt werden.
+pub fn remember_rule(host: &str, browser: &str) -> ffi::LaunchOutcome {
+    let fail = |message: String| ffi::LaunchOutcome { started: false, error: message };
+
+    if host.is_empty() {
+        return fail("ohne Host lässt sich keine Regel merken".to_string());
+    }
+    let Some(path) = rules_path() else {
+        return fail("kein Konfigurationsverzeichnis gefunden".to_string());
+    };
+
+    let mut rules = RuleSet::load(&path);
+    rules.remember_host(host, browser);
+
+    match rules.save(&path) {
+        Ok(()) => ffi::LaunchOutcome { started: true, error: String::new() },
+        Err(err) => fail(err.to_string()),
     }
 }

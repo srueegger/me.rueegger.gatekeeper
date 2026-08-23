@@ -63,6 +63,8 @@ struct Invocation
     };
 
     Mode mode = Mode::Ask;
+    /// Regeln überspringen und in jedem Fall fragen.
+    bool skipRules = false;
     QString browserId;
     QString target;
 };
@@ -70,6 +72,11 @@ struct Invocation
 Invocation parseArguments(int argc, char *argv[])
 {
     Invocation invocation;
+    if (argc > 2 && qstrcmp(argv[1], "--ask") == 0) {
+        invocation.skipRules = true;
+        invocation.target = QString::fromLocal8Bit(argv[2]);
+        return invocation;
+    }
     if (argc > 1 && qstrcmp(argv[1], "--list") == 0) {
         invocation.mode = Invocation::Mode::List;
         if (argc > 2)
@@ -98,11 +105,27 @@ int main(int argc, char *argv[])
     const QByteArray rawTarget = invocation.target.toUtf8();
     const auto target = gatekeeper::check_target(rust::Str(rawTarget.constData(), rawTarget.size()));
     if (!invocation.target.isEmpty() && !target.valid) {
-        qWarning("Ziel abgelehnt: %s", toQString(target.error).toUtf8().constData());
+        qWarning("Ziel abgelehnt: %s", qUtf8Printable(toQString(target.error)));
         return 2;
     }
 
     const QByteArray uri = toQString(target.uri).toUtf8();
+
+    // Der schnelle Pfad. Greift eine Regel, endet der Aufruf hier, und Qt wurde nie
+    // angefasst: keine QGuiApplication, keine Szenengrafik, kein Fenster.
+    if (invocation.mode == Invocation::Mode::Ask && !invocation.skipRules && target.valid) {
+        const auto outcome = gatekeeper::apply_rules(rust::Str(uri.constData(), uri.size()));
+        if (outcome.launched)
+            return 0;
+        if (outcome.matched) {
+            // Die Regel benennt einen Browser, der nicht startet. Statt wortlos zu
+            // scheitern übernimmt der Dialog.
+            qWarning("Regel auf %s greift nicht: %s",
+                     qUtf8Printable(toQString(outcome.browser)),
+                     qUtf8Printable(toQString(outcome.error)));
+        }
+    }
+
     const auto browsers = gatekeeper::list_browsers(rust::Str(uri.constData(), uri.size()));
     if (browsers.empty()) {
         qWarning("Kein Browser gefunden.");

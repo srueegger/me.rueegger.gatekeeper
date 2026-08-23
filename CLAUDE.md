@@ -46,6 +46,7 @@ Context-Properties (ADR-8). Context-Properties sind für `qmllint` und `qmlcache
 
 ```
 crates/gatekeeper-core/   Discovery, Parsing, Regeln, Launcher. Keine GUI, voll unit-testbar
+                          rules.toml liegt in $XDG_CONFIG_HOME/gatekeeper/
 crates/gatekeeper-ffi/    cxx-Bridge, schmale und stabile Fläche zum C++-Teil
 src/                      C++/QML-Frontend, main() und Session
 src/qml/                  QML-Modul GatekeeperUi
@@ -82,6 +83,7 @@ Zwei Schalter zum Nachsehen, beide ohne Dialog:
 ```
 gatekeeper --list [url]                       # was gefunden wird, mit aufgelöstem argv
 gatekeeper --launch <desktop-id> <url>        # ohne Dialog starten
+gatekeeper --ask <url>                        # Regeln überspringen und fragen
 ```
 
 `--list` ist vor allem in der Sandbox nützlich, wo sich von aussen nicht nachvollziehen
@@ -137,6 +139,9 @@ Damit ist Invariante 3 überprüfbar und nicht bloss Vorsatz.
   zurück, wenn kein Schema-Handler gesetzt ist, deshalb schreibt der Rückfallpfad es mit, genau
   wie `xdg-settings`. Für die Frage „sind wir der Standardbrowser" zählen aber nur
   `x-scheme-handler/http` und `x-scheme-handler/https`.
+- **Die Reihenfolge in `main()` trägt Bedeutung.** Regelprüfung und Zielprüfung laufen vor
+  jeder Berührung von Qt (ADR-11). Wer sie dahinter schiebt, verliert den schnellen Pfad, ohne
+  dass ein Test es merkt.
 - **Flatpak baut offline.** Der Bau ruft `cargo --offline --locked` auf. Neue oder geänderte
   Cargo-Abhängigkeiten brauchen deshalb ein neu erzeugtes `generated-sources.json` im selben
   Commit:

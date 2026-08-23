@@ -97,6 +97,15 @@ ApplicationWindow {
             }
         }
 
+        CheckBox {
+            id: remember
+
+            text: qsTr("Für %1 merken").arg(Session.targetHost)
+            visible: Session.targetHost.length > 0
+            Layout.fillWidth: true
+            onToggled: Session.setRememberChoice(checked)
+        }
+
         ListView {
             id: list
 
