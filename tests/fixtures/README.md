@@ -31,13 +31,20 @@ Was sie abdecken:
 - Snaps `env BAMF_DESKTOP_FILE_HINT=… /snap/bin/…`-Präfix. Das Programm ist nicht das erste Token.
 - Snap-Icons sind absolute Pfade (`/snap/firefox/current/default256.png`), keine Theme-Namen.
 
-## `malformed/` — muss übersprungen werden, ohne den Scan abzubrechen
-
-Fehlender Gruppenkopf, abgeschnittene Datei mit Binärmüll und ungültigem UTF-8, leere Datei,
-fehlendes `Exec`, `Type=Link`, doppelte Schlüssel (nach Spec gewinnt der erste).
+## `malformed/` — darf den Scan nicht abbrechen
 
 Auf echten Systemen liegt immer irgendwo Müll. Ein einzelner kaputter Eintrag darf nie dazu führen,
-dass gar keine Browser gefunden werden.
+dass gar keine Browser gefunden werden. Nicht jeder Eintrag hier wird verworfen — manche sind
+reparierbar, und dann ist Reparieren der bessere Umgang als Wegwerfen:
+
+| Datei | Ausgang |
+|---|---|
+| `no-group-header.desktop` | verworfen — keine `[Desktop Entry]`-Gruppe |
+| `truncated-binary.desktop` | verworfen — kein gültiges UTF-8 |
+| `empty.desktop` | verworfen — leer |
+| `missing-exec.desktop` | geparst, aber kein Kandidat: nichts zu starten |
+| `wrong-type.desktop` | geparst, aber kein Kandidat: `Type=Link` |
+| `duplicate-keys.desktop` | **behalten** — nach Spec gewinnt der erste Wert, der Eintrag bleibt brauchbar |
 
 ## `excluded/` — gültig, aber kein Kandidat
 

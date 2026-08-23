@@ -9,6 +9,10 @@ repository.workspace = true
 
 [dependencies]
 log = "0.4"
+url = "2"
 
 [lints]
 workspace = true
+
+[dev-dependencies]
+env_logger = "0.11"
