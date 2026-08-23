@@ -133,6 +133,10 @@ Damit ist Invariante 3 überprüfbar und nicht bloss Vorsatz.
   erscheint dessen Fenster ohne Fokus.
 - **Default-Klau**: Chrome und Firefox setzen sich beim Start gern selbst als Default. Gatekeeper
   prüft das bei jedem Start und bietet Reparatur an.
+- **`text/html` gehört beim Eintragen dazu, beim Prüfen nicht.** KDE fällt auf `text/html`
+  zurück, wenn kein Schema-Handler gesetzt ist, deshalb schreibt der Rückfallpfad es mit, genau
+  wie `xdg-settings`. Für die Frage „sind wir der Standardbrowser" zählen aber nur
+  `x-scheme-handler/http` und `x-scheme-handler/https`.
 - **Flatpak baut offline.** Der Bau ruft `cargo --offline --locked` auf. Neue oder geänderte
   Cargo-Abhängigkeiten brauchen deshalb ein neu erzeugtes `generated-sources.json` im selben
   Commit:

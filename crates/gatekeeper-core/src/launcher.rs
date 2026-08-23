@@ -21,6 +21,7 @@ use std::sync::Mutex;
 use log::{debug, info};
 
 use crate::discovery::in_flatpak_sandbox;
+use crate::host;
 
 /// Umgebungsvariablen, die an den Zielbrowser durchgereicht werden, sofern gesetzt.
 ///
@@ -143,17 +144,7 @@ impl HostSpawnLauncher {
     /// Als eigene Funktion, damit sich prüfen lässt, was übergeben wird, ohne etwas zu
     /// starten.
     pub fn build_argv(request: &LaunchRequest) -> Vec<String> {
-        let mut argv = Vec::with_capacity(request.argv.len() + request.env.len() + 3);
-        argv.push("flatpak-spawn".to_string());
-        argv.push("--host".to_string());
-        for (name, value) in &request.env {
-            argv.push(format!("--env={name}={value}"));
-        }
-        // Ohne diesen Trenner läse flatpak-spawn ein Argument des Browsers, das mit '-'
-        // beginnt, als eigenen Schalter.
-        argv.push("--".to_string());
-        argv.extend(request.argv.iter().cloned());
-        argv
+        host::wrap(&request.argv, &request.env, true)
     }
 }
 

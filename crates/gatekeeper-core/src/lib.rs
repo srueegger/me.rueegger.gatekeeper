@@ -11,9 +11,17 @@
 //! 2. Zielbrowser werden nie über `xdg-open`, ein Portal oder `QDesktopServices` gestartet.
 //!    Alle drei schlagen den Default-Handler nach, und der ist Gatekeeper selbst.
 
+/// Die eigene Desktop-ID.
+///
+/// Wird in der Discovery aus jeder Quelle gefiltert (Invariante 1) und beim Eintrag als
+/// Standardbrowser verwendet. Sie steht hier, damit es genau eine Wahrheit dazu gibt.
+pub const SELF_DESKTOP_ID: &str = "me.rueegger.Gatekeeper.desktop";
+
+pub mod default_browser;
 pub mod desktop;
 pub mod discovery;
 pub mod exec;
+pub mod host;
 pub mod launcher;
 pub mod locale;
 pub mod uri;

@@ -26,6 +26,9 @@ class Session : public QObject
     Q_PROPERTY(QString targetHost READ targetHost CONSTANT)
     /// Grund des letzten fehlgeschlagenen Starts. Leer, solange nichts schiefging.
     Q_PROPERTY(QString launchError READ launchError NOTIFY launchErrorChanged)
+    /// Hinweis, falls Gatekeeper nicht der Standardbrowser ist. Sonst leer.
+    Q_PROPERTY(QString defaultBrowserHint READ defaultBrowserHint NOTIFY
+                       defaultBrowserHintChanged)
 
 public:
     explicit Session(QObject *parent = nullptr) : QObject(parent) { }
@@ -34,6 +37,10 @@ public:
     QString targetUri() const { return m_targetUri; }
     QString targetHost() const { return m_targetHost; }
     QString launchError() const { return m_launchError; }
+    QString defaultBrowserHint() const { return m_defaultBrowserHint; }
+
+    /// Fragt den Kern, wer aktuell Links öffnet. Billig genug für jeden Start.
+    void refreshDefaultBrowserHint();
 
     void setBrowsers(QVariantList browsers) { m_browsers = std::move(browsers); }
     void setTarget(QString uri, QString host)
@@ -41,6 +48,9 @@ public:
         m_targetUri = std::move(uri);
         m_targetHost = std::move(host);
     }
+
+    /// Trägt Gatekeeper als Standardbrowser ein und aktualisiert den Hinweis.
+    Q_INVOKABLE void makeDefaultBrowser();
 
     /// Der Index des Browsers mit dieser Desktop-ID, oder -1.
     int indexOfDesktopId(const QString &desktopId) const;
@@ -59,10 +69,12 @@ public:
 
 Q_SIGNALS:
     void launchErrorChanged();
+    void defaultBrowserHintChanged();
 
 private:
     QVariantList m_browsers;
     QString m_targetUri;
     QString m_targetHost;
     QString m_launchError;
+    QString m_defaultBrowserHint;
 };

@@ -58,6 +58,15 @@ impl TargetUri {
             return Err(UriError::LooksLikeFlag);
         }
 
+        // Ein absoluter Pfad ist kein URI, kommt aber vor: Dateimanager und
+        // Kommandozeile übergeben lokale Dateien oft so. Ein Pfad ist eindeutig als
+        // solcher erkennbar und kann nie ein Schalter sein, weil er mit '/' beginnt.
+        if trimmed.starts_with('/') {
+            return Url::from_file_path(trimmed)
+                .map(|parsed| Self { parsed })
+                .map_err(|()| UriError::Malformed);
+        }
+
         let parsed = Url::parse(trimmed).map_err(|_| UriError::Malformed)?;
         let scheme = parsed.scheme().to_ascii_lowercase();
         if !ALLOWED_SCHEMES.contains(&scheme.as_str()) {
@@ -128,6 +137,29 @@ mod tests {
             TargetUri::parse("data:text/html,<script>x</script>"),
             Err(UriError::UnsupportedScheme("data".into()))
         );
+    }
+
+    #[test]
+    fn accepts_an_absolute_path_as_a_local_file() {
+        // Dateimanager und Kommandozeile übergeben lokale Dateien oft als blossen Pfad.
+        let uri = TargetUri::parse("/home/user/seite.html").unwrap();
+
+        assert_eq!(uri.scheme(), "file");
+        assert_eq!(uri.as_str(), "file:///home/user/seite.html");
+        assert_eq!(uri.host(), None);
+    }
+
+    #[test]
+    fn a_path_with_spaces_is_encoded_not_split() {
+        let uri = TargetUri::parse("/home/user/mein ordner/a b.html").unwrap();
+        assert_eq!(uri.as_str(), "file:///home/user/mein%20ordner/a%20b.html");
+    }
+
+    #[test]
+    fn a_relative_path_is_not_guessed_at() {
+        // Ohne bekanntes Arbeitsverzeichnis wäre jede Auflösung geraten.
+        assert_eq!(TargetUri::parse("seite.html"), Err(UriError::Malformed));
+        assert_eq!(TargetUri::parse("./seite.html"), Err(UriError::Malformed));
     }
 
     #[test]

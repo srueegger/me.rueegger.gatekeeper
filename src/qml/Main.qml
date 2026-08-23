@@ -72,6 +72,31 @@ ApplicationWindow {
             }
         }
 
+        // Chrome und Firefox tragen sich beim Start gern selbst wieder als Standard ein.
+        // Der Hinweis erscheint nur, wenn das tatsächlich passiert ist, und lässt sich an
+        // Ort und Stelle beheben.
+        Pane {
+            visible: Session.defaultBrowserHint.length > 0
+            padding: 10
+            Layout.fillWidth: true
+
+            RowLayout {
+                anchors.fill: parent
+                spacing: 10
+
+                Label {
+                    text: Session.defaultBrowserHint
+                    wrapMode: Text.WordWrap
+                    Layout.fillWidth: true
+                }
+
+                Button {
+                    text: qsTr("Übernehmen")
+                    onClicked: Session.makeDefaultBrowser()
+                }
+            }
+        }
+
         ListView {
             id: list
 

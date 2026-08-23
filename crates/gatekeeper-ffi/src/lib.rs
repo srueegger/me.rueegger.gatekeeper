@@ -3,13 +3,11 @@
 //! Die Fläche bleibt bewusst klein und stabil. Alles, was denken muss, steht in
 //! `gatekeeper-core`; hier wird nur übersetzt.
 
+use gatekeeper_core::default_browser::{self, ConfigEnvironment, DefaultBrowser};
 use gatekeeper_core::discovery::{self, DiscoveryOptions};
 use gatekeeper_core::exec::{self, FieldContext};
 use gatekeeper_core::launcher::{LaunchRequest, default_launcher};
 use gatekeeper_core::uri::TargetUri;
-
-/// Eigene Desktop-ID. Wird in der Discovery immer ausgefiltert (Invariante 1).
-pub const SELF_DESKTOP_ID: &str = "me.rueegger.Gatekeeper.desktop";
 
 #[cxx::bridge(namespace = "gatekeeper")]
 mod ffi {
@@ -24,6 +22,14 @@ mod ffi {
         origin: String,
         /// Fertiges Startkommando. Erstes Element ist das Programm.
         argv: Vec<String>,
+    }
+
+    /// Wer aktuell Links öffnet.
+    struct DefaultBrowserStatus {
+        /// Gatekeeper ist für http und https zuständig.
+        ours: bool,
+        /// Kurzer Satz für die Oberfläche. Leer, wenn alles in Ordnung ist.
+        message: String,
     }
 
     /// Ergebnis eines Startversuchs.
@@ -48,6 +54,8 @@ mod ffi {
         fn check_target(raw: &str) -> Target;
         fn list_browsers(uri: &str) -> Vec<Browser>;
         fn launch(argv: &[String]) -> LaunchOutcome;
+        fn default_browser_status() -> DefaultBrowserStatus;
+        fn make_default_browser() -> LaunchOutcome;
     }
 }
 
@@ -81,7 +89,7 @@ pub fn check_target(raw: &str) -> ffi::Target {
 /// Einträge, deren `Exec`-Zeile sich nicht auflösen lässt, fallen hier weg statt später
 /// beim Klick zu scheitern.
 pub fn list_browsers(uri: &str) -> Vec<ffi::Browser> {
-    let options = DiscoveryOptions::from_env(SELF_DESKTOP_ID);
+    let options = DiscoveryOptions::from_env(gatekeeper_core::SELF_DESKTOP_ID);
     let uris: Vec<String> = if uri.is_empty() { Vec::new() } else { vec![uri.to_string()] };
 
     discovery::discover(&options)
@@ -113,6 +121,37 @@ pub fn list_browsers(uri: &str) -> Vec<ffi::Browser> {
 pub fn launch(argv: &[String]) -> ffi::LaunchOutcome {
     let request = LaunchRequest::new(argv.to_vec());
     match default_launcher().launch(&request) {
+        Ok(()) => ffi::LaunchOutcome { started: true, error: String::new() },
+        Err(err) => ffi::LaunchOutcome { started: false, error: err.to_string() },
+    }
+}
+
+/// Prüft, ob Gatekeeper der Standardbrowser ist.
+///
+/// Läuft bei jedem Start und liest dafür nur Dateien, ohne einen Prozess zu starten.
+pub fn default_browser_status() -> ffi::DefaultBrowserStatus {
+    let env = ConfigEnvironment::from_env();
+    match default_browser::current(&env) {
+        DefaultBrowser::Ours => ffi::DefaultBrowserStatus { ours: true, message: String::new() },
+        DefaultBrowser::Unset => ffi::DefaultBrowserStatus {
+            ours: false,
+            message: "Es ist kein Standardbrowser eingetragen.".to_string(),
+        },
+        DefaultBrowser::Other { desktop_id } => ffi::DefaultBrowserStatus {
+            ours: false,
+            message: format!("Links öffnet zurzeit {desktop_id}, nicht Gatekeeper."),
+        },
+        DefaultBrowser::Mixed { .. } => ffi::DefaultBrowserStatus {
+            ours: false,
+            message: "http und https sind auf verschiedene Anwendungen eingetragen.".to_string(),
+        },
+    }
+}
+
+/// Trägt Gatekeeper als Standardbrowser ein und prüft anschliessend nach.
+pub fn make_default_browser() -> ffi::LaunchOutcome {
+    let env = ConfigEnvironment::from_env();
+    match default_browser::make_default(&env) {
         Ok(()) => ffi::LaunchOutcome { started: true, error: String::new() },
         Err(err) => ffi::LaunchOutcome { started: false, error: err.to_string() },
     }

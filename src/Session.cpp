@@ -10,6 +10,38 @@
 
 Session *Session::instance = nullptr;
 
+namespace {
+
+QString toQString(const rust::String &value)
+{
+    return QString::fromUtf8(value.data(), static_cast<qsizetype>(value.size()));
+}
+
+} // namespace
+
+void Session::refreshDefaultBrowserHint()
+{
+    const auto status = gatekeeper::default_browser_status();
+    const QString hint = status.ours ? QString() : toQString(status.message);
+    if (hint == m_defaultBrowserHint)
+        return;
+
+    m_defaultBrowserHint = hint;
+    Q_EMIT defaultBrowserHintChanged();
+}
+
+void Session::makeDefaultBrowser()
+{
+    const auto outcome = gatekeeper::make_default_browser();
+    if (!outcome.started) {
+        m_launchError = toQString(outcome.error);
+        qWarning("Konnte nicht Standardbrowser werden: %s", qUtf8Printable(m_launchError));
+        Q_EMIT launchErrorChanged();
+        return;
+    }
+    refreshDefaultBrowserHint();
+}
+
 int Session::indexOfDesktopId(const QString &desktopId) const
 {
     for (int index = 0; index < m_browsers.size(); ++index) {
@@ -39,8 +71,7 @@ void Session::choose(int index)
     const auto outcome =
         gatekeeper::launch(rust::Slice<const rust::String>(command.data(), command.size()));
     if (!outcome.started) {
-        m_launchError = QString::fromUtf8(outcome.error.data(),
-                                          static_cast<qsizetype>(outcome.error.size()));
+        m_launchError = toQString(outcome.error);
         qWarning("Start fehlgeschlagen: %s", qUtf8Printable(m_launchError));
         Q_EMIT launchErrorChanged();
         return;

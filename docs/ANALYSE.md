@@ -163,16 +163,46 @@ MimeType=x-scheme-handler/http;x-scheme-handler/https;text/html;application/xhtm
 Exec=gatekeeper %u
 ```
 
-Setzen aus der App heraus über
-`flatpak-spawn --host xdg-settings set default-web-browser me.rueegger.Gatekeeper.desktop`,
-Verifikation über `xdg-settings check`. Fällt `xdg-settings` aus, wird `mimeapps.list` direkt
-geschrieben.
+### Prüfen
 
-**Bekanntes Ärgernis**: Chrome und Firefox setzen sich beim Start gern selbst wieder als Default.
-Gatekeeper prüft den Zustand bei jedem Start (billig) und blendet bei Abweichung einen Hinweis mit
-Reparatur-Knopf ein.
+Läuft bei jedem Start und liegt damit im Klickpfad. Deshalb werden die
+`mimeapps.list`-Dateien selbst gelesen, statt ein Werkzeug aufzurufen: Dateien lesen kostet
+Mikrosekunden, ein Prozessstart Millisekunden. Die Reihenfolge folgt der mime-apps-Spec,
+also desktopspezifisch vor allgemein und Nutzer vor System. Auf diesem KDE-System sind das
+sechs Dateien, darunter `~/.config/kdedefaults/`, das KDE über `XDG_CONFIG_DIRS` einhängt.
 
----
+Entscheidend sind ausschliesslich `x-scheme-handler/http` und `x-scheme-handler/https`. Wer
+nur `text/html` besitzt, ist damit noch nicht der Browser, der Links öffnet. Zeigen die
+beiden auf verschiedene Anwendungen, gilt der Zustand als uneinheitlich und nicht als
+unserer; das kommt vor, wenn ein Browser sich nur für eines von beiden eingetragen hat.
+
+### Setzen
+
+Über `xdg-settings set default-web-browser`, weil dabei auch desktopspezifische Dateien und
+Zwischenspeicher berührt werden, die wir nicht alle kennen. Auf diesem System legt es
+zusätzlich `kdeglobals` an. Fehlt das Werkzeug oder scheitert es, wird `mimeapps.list`
+selbst geschrieben: bestehende Zeilen bleiben, nur die verwalteten Typen werden ersetzt.
+
+Der Rückfallpfad schreibt dieselben Typen wie `xdg-settings`, also zusätzlich `text/html`.
+Der Grund steht in `xdg-settings` selbst: KDE fällt auf `text/html` zurück, wenn kein
+Schema-Handler eingetragen ist. Ohne diesen Zusatz verhielte sich der Rückfall anders als
+der Normalfall.
+
+Nach dem Schreiben wird nachgesehen, ob es tatsächlich gilt. Ein „hat geklappt", das nicht
+stimmt, ist schlimmer als ein ehrliches Scheitern.
+
+### In der Sandbox
+
+Dieselbe Falle wie bei den Suchpfaden: `XDG_CONFIG_HOME` zeigt auf
+`~/.var/app/me.rueegger.Gatekeeper/config`, nicht auf die Konfiguration des Nutzers.
+Gelesen und geschrieben wird deshalb `$HOME/.config`. `/etc/xdg` gehört in der Sandbox der
+Runtime und wird übersprungen. Siehe ADR-9.
+
+### Bekanntes Ärgernis
+
+Chrome und Firefox tragen sich beim Start gern selbst wieder als Standard ein. Gatekeeper
+prüft den Zustand bei jedem Start und blendet bei Abweichung einen Hinweis mit
+Reparaturknopf ein.
 
 ## 5. Flatpak-Berechtigungen
 

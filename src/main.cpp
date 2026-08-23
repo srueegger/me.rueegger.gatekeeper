@@ -135,6 +135,7 @@ int main(int argc, char *argv[])
     Session session;
     session.setBrowsers(std::move(model));
     session.setTarget(toQString(target.uri), toQString(target.display_host));
+    session.refreshDefaultBrowserHint();
 
     // Denselben Weg nimmt später ein Regeltreffer: kein Fenster, keine QGuiApplication.
     if (invocation.mode == Invocation::Mode::Launch) {

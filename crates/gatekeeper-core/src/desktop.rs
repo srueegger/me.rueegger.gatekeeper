@@ -166,49 +166,17 @@ impl DesktopFile {
 
     /// Parst den Inhalt einer Desktop-Datei mit vorgegebener ID und Herkunft.
     pub fn parse_str(text: &str, id: String, path: PathBuf) -> Result<Self, ParseError> {
-        let mut entry: Option<Group> = None;
-        let mut actions: BTreeMap<String, Group> = BTreeMap::new();
-        let mut current: Option<(String, Group)> = None;
+        let mut groups = parse_ini(text);
+        let entry = groups.remove("Desktop Entry").ok_or(ParseError::NoEntryGroup)?;
 
-        for line in text.lines() {
-            let line = line.trim_start_matches('\u{feff}');
-            let trimmed = line.trim();
+        let actions = groups
+            .into_iter()
+            .filter_map(|(name, group)| {
+                Some((name.strip_prefix("Desktop Action ")?.trim().to_string(), group))
+            })
+            .collect();
 
-            // Leerzeilen und Kommentare. Kommentare stehen auch mitten in Gruppen,
-            // brave-origin.desktop tut das.
-            if trimmed.is_empty() || trimmed.starts_with('#') {
-                continue;
-            }
-
-            if let Some(name) = trimmed.strip_prefix('[').and_then(|s| s.strip_suffix(']')) {
-                if let Some((name, group)) = current.take() {
-                    store_group(&mut entry, &mut actions, name, group);
-                }
-                current = Some((name.to_string(), Group::default()));
-                continue;
-            }
-
-            // Werte ausserhalb jeder Gruppe sind ungültig und werden verworfen.
-            let Some((_, group)) = current.as_mut() else {
-                continue;
-            };
-            let Some((key_part, value)) = trimmed.split_once('=') else {
-                continue;
-            };
-
-            let key_part = key_part.trim_end();
-            let value = value.trim_start();
-            match split_locale(key_part) {
-                Some((key, locale)) => group.insert(key, Some(locale), value),
-                None => group.insert(key_part, None, value),
-            }
-        }
-
-        if let Some((name, group)) = current.take() {
-            store_group(&mut entry, &mut actions, name, group);
-        }
-
-        Ok(Self { id, path, entry: entry.ok_or(ParseError::NoEntryGroup)?, actions })
+        Ok(Self { id, path, entry, actions })
     }
 
     /// Die in `Actions=` gelisteten Aktionen, in deklarierter Reihenfolge.
@@ -226,18 +194,52 @@ impl DesktopFile {
     }
 }
 
-fn store_group(
-    entry: &mut Option<Group>,
-    actions: &mut BTreeMap<String, Group>,
-    name: String,
-    group: Group,
-) {
-    if name == "Desktop Entry" {
-        // Bei einer zweiten [Desktop Entry]-Gruppe gewinnt die erste.
-        entry.get_or_insert(group);
-    } else if let Some(action) = name.strip_prefix("Desktop Action ") {
-        actions.entry(action.trim().to_string()).or_insert(group);
+/// Zerlegt eine Datei im Desktop-Entry-Format in ihre Gruppen.
+///
+/// Dasselbe Format nutzt auch `mimeapps.list`, weshalb der Parser nicht auf Desktop-Dateien
+/// festgelegt ist. Kommt eine Gruppe mehrfach vor, gewinnt die erste.
+pub(crate) fn parse_ini(text: &str) -> BTreeMap<String, Group> {
+    let mut groups: BTreeMap<String, Group> = BTreeMap::new();
+    let mut current: Option<(String, Group)> = None;
+
+    for line in text.lines() {
+        let line = line.trim_start_matches('\u{feff}');
+        let trimmed = line.trim();
+
+        // Leerzeilen und Kommentare. Kommentare stehen auch mitten in Gruppen,
+        // brave-origin.desktop tut das.
+        if trimmed.is_empty() || trimmed.starts_with('#') {
+            continue;
+        }
+
+        if let Some(name) = trimmed.strip_prefix('[').and_then(|s| s.strip_suffix(']')) {
+            if let Some((name, group)) = current.take() {
+                groups.entry(name).or_insert(group);
+            }
+            current = Some((name.to_string(), Group::default()));
+            continue;
+        }
+
+        // Werte ausserhalb jeder Gruppe sind ungültig und werden verworfen.
+        let Some((_, group)) = current.as_mut() else {
+            continue;
+        };
+        let Some((key_part, value)) = trimmed.split_once('=') else {
+            continue;
+        };
+
+        let key_part = key_part.trim_end();
+        let value = value.trim_start();
+        match split_locale(key_part) {
+            Some((key, locale)) => group.insert(key, Some(locale), value),
+            None => group.insert(key_part, None, value),
+        }
     }
+
+    if let Some((name, group)) = current.take() {
+        groups.entry(name).or_insert(group);
+    }
+    groups
 }
 
 /// Trennt `Name[de_CH]` in `("Name", "de_CH")`.
